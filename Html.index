@@ -1,0 +1,1200 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>VitFlix Premium - Movies, Shorts & Cash Wallet</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Supabase JS SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            red: '#E50914',
+                            dark: '#08080a',
+                            card: '#121217',
+                            border: '#22222a',
+                            gold: '#FFD700'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+        * {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: #08080a;
+            color: #ffffff;
+            overflow-x: hidden;
+            scroll-behavior: smooth;
+        }
+
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #08080a; }
+        ::-webkit-scrollbar-thumb { background: #22222a; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #E50914; }
+
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* Reels Snap Scroll */
+        .reels-container {
+            scroll-snap-type: y mandatory;
+            overflow-y: scroll;
+            height: calc(100vh - 140px);
+        }
+        @media (min-width: 768px) {
+            .reels-container { height: 750px; }
+        }
+
+        .reel-card {
+            scroll-snap-align: start;
+            scroll-snap-stop: always;
+        }
+
+        .glass-panel {
+            background: rgba(18, 18, 23, 0.75);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .glow-red { box-shadow: 0 0 25px rgba(229, 9, 20, 0.35); }
+
+        .coin-spin { animation: spin 4s linear infinite; }
+        @keyframes spin { 0% { transform: rotateY(0deg); } 100% { transform: rotateY(360deg); } }
+
+        .video-container {
+            position: relative;
+            padding-bottom: 56.25%;
+            height: 0;
+            overflow: hidden;
+            border-radius: 16px;
+            transition: all 0.3s ease;
+        }
+        .video-container iframe, .video-container video {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none;
+        }
+
+        .fullscreen-active {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            z-index: 99999 !important;
+            border-radius: 0 !important;
+            padding-bottom: 0 !important;
+            background: #000 !important;
+        }
+
+        .card-hover { transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .card-hover:hover { transform: translateY(-6px) scale(1.02); box-shadow: 0 15px 30px rgba(229, 9, 20, 0.3); }
+
+        .toast-animate { animation: slideUp 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+        @keyframes slideUp {
+            from { transform: translateY(100%) translateX(-50%); opacity: 0; }
+            to { transform: translateY(0) translateX(-50%); opacity: 1; }
+        }
+
+        .withdraw-card-active {
+            border-color: #E50914 !important;
+            background-color: rgba(229, 9, 20, 0.08) !important;
+            box-shadow: 0 0 15px rgba(229, 9, 20, 0.2);
+        }
+    </style>
+</head>
+<body class="min-h-screen pb-16 md:pb-0">
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-20 md:bottom-8 left-1/2 -translate-x-1/2 z-[150000] hidden">
+        <div class="glass-panel text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 border-brand-red/40 border toast-animate">
+            <i class="fas fa-coins text-brand-gold text-lg"></i>
+            <span id="toast-msg" class="text-sm font-semibold">Reward claimed successfully!</span>
+        </div>
+    </div>
+
+    <!-- SIDE DRAWER MENU -->
+    <div id="menu-drawer" class="fixed inset-0 bg-black/80 z-[120] hidden backdrop-blur-sm" onclick="closeDrawerMenu()">
+        <div class="w-72 max-w-[80%] h-full bg-[#121217] border-r border-brand-border p-5 space-y-6 flex flex-col justify-between" onclick="event.stopPropagation()">
+            <div class="space-y-6">
+                <div class="flex items-center justify-between pb-4 border-b border-white/10">
+                    <div class="flex items-center gap-2">
+                        <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-brand-red to-orange-500 flex items-center justify-center glow-red">
+                            <i class="fas fa-play text-white text-xs"></i>
+                        </div>
+                        <span class="text-xl font-black">Vit<span class="text-brand-red">Flix</span></span>
+                    </div>
+                    <button onclick="closeDrawerMenu()" class="text-gray-400 hover:text-white p-1 text-lg"><i class="fas fa-times"></i></button>
+                </div>
+
+                <nav class="space-y-2">
+                    <button onclick="switchView('movies'); closeDrawerMenu();" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-sm transition text-white hover:bg-brand-red">
+                        <i class="fas fa-film text-brand-red text-base w-5"></i>
+                        <span>Movies & Cinema</span>
+                    </button>
+                    <button onclick="switchView('shorts'); closeDrawerMenu();" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-sm transition text-white hover:bg-brand-red">
+                        <i class="fas fa-bolt text-brand-gold text-base w-5"></i>
+                        <span>Shorts Videos</span>
+                    </button>
+                    <button onclick="switchView('cash'); closeDrawerMenu();" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-sm transition text-white hover:bg-brand-red">
+                        <i class="fas fa-wallet text-green-400 text-base w-5"></i>
+                        <span>Cash / My Wallet</span>
+                    </button>
+                </nav>
+            </div>
+
+            <div class="glass-panel p-4 rounded-2xl border border-brand-gold/20 space-y-2">
+                <div class="text-xs text-gray-400">Total Wallet Coins</div>
+                <div class="flex items-center gap-2">
+                    <i class="fas fa-coins text-brand-gold text-xl coin-spin"></i>
+                    <span id="menu-coins" class="text-xl font-extrabold text-white">108,176</span>
+                </div>
+                <p class="text-[11px] text-brand-gold font-bold">≈ ₹ <span id="menu-rupees">10.82</span> INR</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- WITHDRAWAL RECORD MODAL -->
+    <div id="records-modal" class="fixed inset-0 bg-black/85 z-[140] flex items-center justify-center p-4 hidden backdrop-blur-md">
+        <div class="bg-[#121217] border border-brand-border w-full max-w-md rounded-2xl p-6 space-y-4 max-h-[80vh] flex flex-col shadow-2xl">
+            <div class="flex items-center justify-between border-b border-white/10 pb-3">
+                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                    <i class="fas fa-history text-brand-gold"></i> Withdrawal Record
+                </h3>
+                <button onclick="closeRecordsModal()" class="text-gray-400 hover:text-white p-1"><i class="fas fa-times"></i></button>
+            </div>
+
+            <div id="records-list" class="space-y-3 overflow-y-auto no-scrollbar flex-1 pr-1">
+                <!-- Records loaded via JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- WITHDRAWAL SUBMIT MODAL -->
+    <div id="withdraw-modal" class="fixed inset-0 bg-black/80 z-[130] flex items-center justify-center p-4 hidden backdrop-blur-sm">
+        <div class="bg-[#121217] border border-brand-border w-full max-w-md rounded-2xl p-6 space-y-5">
+            <div class="flex items-center justify-between border-b border-white/10 pb-3">
+                <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                    <i class="fas fa-wallet text-brand-red"></i> Confirm Withdrawal
+                </h3>
+                <button onclick="closeWithdrawModal()" class="text-gray-400 hover:text-white"><i class="fas fa-times"></i></button>
+            </div>
+
+            <div class="bg-brand-red/10 border border-brand-red/30 rounded-xl p-3 text-xs text-brand-gold space-y-1">
+                <p class="font-bold">Amount: <span id="modal-amount-text" class="text-white">₹10</span></p>
+                <p class="font-bold">Required: <span id="modal-coins-text" class="text-white">100,000 Coins</span></p>
+            </div>
+
+            <div class="space-y-3">
+                <label class="text-xs text-gray-300 font-semibold">Enter UPI ID / Paytm Phone Number</label>
+                <input type="text" id="upi-input" placeholder="e.g. 9876543210@paytm" class="w-full bg-black/60 border border-brand-border rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-red">
+            </div>
+
+            <button onclick="submitWithdrawal()" class="w-full bg-gradient-to-r from-red-600 to-rose-600 text-white font-bold py-3.5 rounded-xl text-sm shadow-lg hover:brightness-110 transition">
+                Submit Request
+            </button>
+        </div>
+    </div>
+
+    <!-- MAIN APP STRUCTURE -->
+    <div class="flex h-screen overflow-hidden">
+
+        <!-- DESKTOP SIDEBAR NAVIGATION -->
+        <aside class="hidden md:flex flex-col w-64 border-r border-brand-border bg-brand-dark p-5 justify-between">
+            <div class="space-y-8">
+                <div class="flex items-center gap-3 px-2 cursor-pointer" onclick="switchView('movies')">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-red to-orange-500 flex items-center justify-center glow-red">
+                        <i class="fas fa-play text-white text-lg"></i>
+                    </div>
+                    <span class="text-2xl font-black tracking-tight">Vit<span class="text-brand-red">Flix</span></span>
+                </div>
+
+                <nav class="space-y-2">
+                    <button onclick="switchView('movies')" id="nav-movies-btn" class="w-full flex items-center gap-4 px-4 py-3 rounded-xl font-semibold text-sm transition bg-brand-red text-white">
+                        <i class="fas fa-film text-lg"></i>
+                        <span>Movies</span>
+                    </button>
+                    <button onclick="switchView('shorts')" id="nav-shorts-btn" class="w-full flex items-center gap-4 px-4 py-3 rounded-xl font-semibold text-sm transition text-gray-400 hover:text-white hover:bg-brand-card">
+                        <i class="fas fa-bolt text-lg text-brand-gold"></i>
+                        <span>Shorts</span>
+                    </button>
+                    <button onclick="switchView('cash')" id="nav-cash-btn" class="w-full flex items-center gap-4 px-4 py-3 rounded-xl font-semibold text-sm transition text-gray-400 hover:text-white hover:bg-brand-card">
+                        <i class="fas fa-wallet text-lg text-green-400"></i>
+                        <span>Cash Wallet</span>
+                    </button>
+                </nav>
+            </div>
+
+            <div class="glass-panel p-4 rounded-2xl border border-brand-gold/20 space-y-3 cursor-pointer" onclick="switchView('cash')">
+                <div class="flex items-center justify-between text-xs text-gray-400 font-medium">
+                    <span>Total Cash Balance</span>
+                    <i class="fas fa-chevron-right text-xs"></i>
+                </div>
+                <div class="flex items-center gap-2">
+                    <i class="fas fa-coins text-brand-gold text-2xl coin-spin"></i>
+                    <span id="user-coins-desktop" class="text-2xl font-extrabold text-white">108,176</span>
+                </div>
+                <p class="text-[11px] text-brand-gold font-bold">≈ ₹ <span id="user-rupees-desktop">10.82</span> INR</p>
+            </div>
+        </aside>
+
+        <!-- MAIN CONTENT AREA (ADDED ID FOR SCROLL FIX) -->
+        <div id="main-scroll-container" class="flex-1 flex flex-col h-screen overflow-y-auto no-scrollbar">
+
+            <!-- CLEAN TOP NAVBAR -->
+            <header class="sticky top-0 z-40 glass-panel border-b border-brand-border px-4 py-3.5 md:px-8 flex items-center justify-between">
+                
+                <div class="flex items-center gap-3">
+                    <button onclick="openDrawerMenu()" class="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center text-white hover:bg-brand-red transition">
+                        <i class="fas fa-bars text-lg"></i>
+                    </button>
+                    
+                    <div class="flex items-center gap-2 cursor-pointer" onclick="switchView('movies')">
+                        <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-brand-red to-orange-500 flex items-center justify-center">
+                            <i class="fas fa-play text-white text-xs"></i>
+                        </div>
+                        <span class="text-xl font-black">Vit<span class="text-brand-red">Flix</span></span>
+                    </div>
+                </div>
+
+                <div onclick="switchView('cash')" class="flex items-center gap-2 bg-brand-gold/10 border border-brand-gold/30 px-3 py-1.5 rounded-full cursor-pointer">
+                    <i class="fas fa-coins text-brand-gold coin-spin text-sm"></i>
+                    <span id="user-coins-header" class="text-brand-gold font-bold text-xs md:text-sm">108,176</span>
+                </div>
+            </header>
+
+
+            <!-- ================= VIEW 1: MOVIES SECTION ================= -->
+            <main id="view-movies" class="p-4 md:p-8 space-y-8 max-w-7xl mx-auto w-full">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="lg:col-span-2 space-y-4">
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <div>
+                                <h1 id="top-movie-title" class="text-xl md:text-2xl font-extrabold text-white">Loading Movie...</h1>
+                                <div class="flex items-center gap-2 mt-1 text-xs text-gray-400">
+                                    <span class="bg-brand-red text-white text-[10px] font-extrabold px-2 py-0.5 rounded">FULL HD</span>
+                                    <span id="top-movie-year">2024</span>
+                                    <span>•</span>
+                                    <span id="top-movie-genre" class="text-brand-gold font-semibold">Action, Drama</span>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <button onclick="toggleLike()" class="glass-panel hover:bg-white/10 px-3 py-1.5 rounded-xl transition text-xs font-semibold">
+                                    <i class="far fa-heart text-brand-red mr-1"></i> 24.5K
+                                </button>
+                                <button onclick="shareMovie()" class="glass-panel hover:bg-white/10 px-3 py-1.5 rounded-xl transition text-xs font-semibold">
+                                    <i class="fas fa-share-alt text-gray-300 mr-1"></i> Share
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Video Player Box -->
+                        <div class="video-container glow-red relative border border-brand-border bg-black rounded-2xl overflow-hidden shadow-2xl" id="video-wrapper">
+                            
+                            <button onclick="makeVideoFullScreen()" title="Full Screen" class="absolute top-3 right-3 z-40 w-9 h-9 rounded-full bg-black/70 hover:bg-brand-red border border-white/20 text-brand-gold flex items-center justify-center text-sm backdrop-blur-md shadow-2xl transition active:scale-95">
+                                <i id="fs-btn-icon" class="fas fa-expand"></i>
+                            </button>
+
+                            <div id="video-placeholder" class="absolute inset-0 flex flex-col items-center justify-center bg-black/80 rounded-xl z-10 cursor-pointer" onclick="startCurrentVideo()">
+                                <img id="top-poster-img" src="" alt="Poster" class="absolute inset-0 w-full h-full object-cover opacity-30">
+                                <div class="relative z-10 flex flex-col items-center p-4 text-center">
+                                    <div class="w-16 h-16 md:w-20 md:h-20 rounded-full bg-brand-red flex items-center justify-center mb-3 hover:scale-110 transition shadow-2xl glow-red">
+                                        <i class="fas fa-play text-white text-2xl md:text-3xl ml-1"></i>
+                                    </div>
+                                    <p class="text-white font-bold text-base md:text-lg">Click to Play Stream</p>
+                                    <p class="text-brand-gold text-xs mt-1 font-semibold flex items-center gap-1">
+                                        <i class="fas fa-coins"></i> Watch & Automatically Earn Coins
+                                    </p>
+                                </div>
+                            </div>
+                            <div id="player-mount" class="w-full h-full"></div>
+                        </div>
+
+                        <!-- Watch Time Timeline -->
+                        <div class="glass-panel rounded-2xl p-4 md:p-6 border border-brand-gold/30 space-y-4">
+                            <div class="bg-brand-gold/10 border border-brand-gold/20 rounded-xl px-3 py-2 flex items-center gap-2 text-xs text-brand-gold">
+                                <i class="fas fa-volume-high animate-pulse"></i>
+                                <div class="truncate font-medium flex-1">
+                                    <span id="payout-ticker">🔥 MP**MU successfully withdrew ₹50 via UPI (Just now)</span>
+                                </div>
+                            </div>
+
+                            <div class="flex justify-between items-center text-xs font-bold">
+                                <span class="flex items-center gap-2"><i class="fas fa-stopwatch text-brand-red"></i> Watch Time Rewards Timeline</span>
+                                <span id="watch-time-text" class="text-brand-gold">0 mins watched</span>
+                            </div>
+
+                            <div class="relative py-2">
+                                <div class="absolute top-1/2 left-0 right-0 h-2 bg-white/5 -translate-y-1/2 rounded-full overflow-hidden">
+                                    <div id="milestone-progress-line" class="h-full bg-gradient-to-r from-brand-gold to-brand-red transition-all duration-500" style="width: 0%"></div>
+                                </div>
+
+                                <div class="relative flex justify-between items-center z-10 text-center">
+                                    <div class="flex flex-col items-center cursor-pointer" onclick="claimMilestone(0)">
+                                        <span class="text-[9px] font-extrabold text-brand-gold bg-black/90 px-1.5 py-0.5 rounded border border-brand-gold/30 mb-1.5">+800</span>
+                                        <div id="m-dot-0" class="w-6 h-6 rounded-full bg-brand-card border-2 border-gray-600 flex items-center justify-center text-[10px] text-white font-bold"><i class="fas fa-lock text-[8px]"></i></div>
+                                        <span class="text-[10px] text-gray-400 font-semibold mt-1">2m</span>
+                                    </div>
+                                    <div class="flex flex-col items-center cursor-pointer" onclick="claimMilestone(1)">
+                                        <span class="text-[9px] font-extrabold text-brand-gold bg-black/90 px-1.5 py-0.5 rounded border border-brand-gold/30 mb-1.5">+2K</span>
+                                        <div id="m-dot-1" class="w-6 h-6 rounded-full bg-brand-card border-2 border-gray-600 flex items-center justify-center text-[10px] text-white font-bold"><i class="fas fa-lock text-[8px]"></i></div>
+                                        <span class="text-[10px] text-gray-400 font-semibold mt-1">10m</span>
+                                    </div>
+                                    <div class="flex flex-col items-center cursor-pointer" onclick="claimMilestone(2)">
+                                        <span class="text-[9px] font-extrabold text-brand-gold bg-black/90 px-1.5 py-0.5 rounded border border-brand-gold/30 mb-1.5">+4K</span>
+                                        <div id="m-dot-2" class="w-6 h-6 rounded-full bg-brand-card border-2 border-gray-600 flex items-center justify-center text-[10px] text-white font-bold"><i class="fas fa-lock text-[8px]"></i></div>
+                                        <span class="text-[10px] text-gray-400 font-semibold mt-1">20m</span>
+                                    </div>
+                                    <div class="flex flex-col items-center cursor-pointer" onclick="claimMilestone(3)">
+                                        <span class="text-[9px] font-extrabold text-brand-gold bg-black/90 px-1.5 py-0.5 rounded border border-brand-gold/30 mb-1.5">+6K</span>
+                                        <div id="m-dot-3" class="w-6 h-6 rounded-full bg-brand-card border-2 border-gray-600 flex items-center justify-center text-[10px] text-white font-bold"><i class="fas fa-lock text-[8px]"></i></div>
+                                        <span class="text-[10px] text-gray-400 font-semibold mt-1">30m</span>
+                                    </div>
+                                    <div class="flex flex-col items-center cursor-pointer" onclick="claimMilestone(4)">
+                                        <span class="text-[9px] font-extrabold text-brand-gold bg-black/90 px-1.5 py-0.5 rounded border border-brand-gold/30 mb-1.5">+10K</span>
+                                        <div id="m-dot-4" class="w-6 h-6 rounded-full bg-brand-card border-2 border-gray-600 flex items-center justify-center text-[10px] text-white font-bold"><i class="fas fa-lock text-[8px]"></i></div>
+                                        <span class="text-[10px] text-gray-400 font-semibold mt-1">60m</span>
+                                    </div>
+                                    <div class="flex flex-col items-center cursor-pointer" onclick="claimMilestone(5)">
+                                        <span class="text-[9px] font-extrabold text-brand-gold bg-black/90 px-1.5 py-0.5 rounded border border-brand-gold/30 mb-1.5">+16K</span>
+                                        <div id="m-dot-5" class="w-6 h-6 rounded-full bg-brand-card border-2 border-gray-600 flex items-center justify-center text-[10px] text-white font-bold"><i class="fas fa-lock text-[8px]"></i></div>
+                                        <span class="text-[10px] text-gray-400 font-semibold mt-1">180m</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="pt-2 border-t border-white/5 flex items-center justify-between text-xs text-gray-400">
+                                <span>Watch time updates every second</span>
+                                <button onclick="simulateWatchTime(120)" class="text-brand-gold font-bold text-xs hover:underline flex items-center gap-1">
+                                    <i class="fas fa-bolt"></i> Speed Test (+2m)
+                                </button>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- Right Sidebar -->
+                    <div class="space-y-6">
+                        <div class="glass-panel rounded-2xl p-5 border border-brand-border">
+                            <h3 class="font-bold text-base mb-4 flex items-center gap-2 text-white">
+                                <i class="fas fa-server text-brand-red"></i> Streaming CDN Server
+                            </h3>
+                            <button class="w-full text-left px-4 py-3 rounded-xl bg-brand-red/10 border border-brand-red/30 text-xs font-semibold flex items-center justify-between">
+                                <span class="flex items-center gap-2"><i class="fas fa-play-circle text-brand-red"></i> High Speed Stream</span>
+                                <span class="bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full text-[10px] font-bold">Online</span>
+                            </button>
+                        </div>
+
+                        <div class="glass-panel rounded-2xl p-5 border border-brand-gold/20">
+                            <h3 class="font-bold text-base mb-4 flex items-center gap-2 text-white">
+                                <i class="fas fa-trophy text-brand-gold"></i> Top Earners Today
+                            </h3>
+                            <div class="space-y-3">
+                                <div class="flex items-center gap-3 text-xs">
+                                    <span class="text-brand-gold font-bold w-4">1</span>
+                                    <span class="flex-1 font-medium">Ravi_King</span>
+                                    <span class="text-brand-gold font-bold">152,800</span>
+                                </div>
+                                <div class="flex items-center gap-3 text-xs">
+                                    <span class="text-gray-400 font-bold w-4">2</span>
+                                    <span class="flex-1 font-medium">Sneha_M</span>
+                                    <span class="text-brand-gold font-bold">128,400</span>
+                                </div>
+                                <div class="flex items-center gap-3 text-xs bg-brand-red/10 border border-brand-red/20 p-2.5 rounded-xl">
+                                    <span class="text-brand-red font-bold w-4">42</span>
+                                    <span class="flex-1 font-bold">You (Current User)</span>
+                                    <span class="text-brand-gold font-extrabold" id="rank-coins">108,176</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- MOVIE CARDS GRID SECTION -->
+                <section class="space-y-5 pt-4">
+                    <div class="flex items-center justify-between">
+                        <h2 class="text-lg md:text-xl font-bold flex items-center gap-2 text-white">
+                            <i class="fas fa-film text-brand-red"></i> Cinema Library & Admin Uploads
+                        </h2>
+                        <span class="text-xs text-gray-400 font-medium">Tap any movie to play at top</span>
+                    </div>
+
+                    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4" id="movies-grid"></div>
+                </section>
+            </main>
+
+
+            <!-- ================= VIEW 2: SHORTS SECTION ================= -->
+            <main id="view-shorts" class="hidden p-2 md:p-6 flex justify-center items-center">
+                <div class="w-full max-w-md relative">
+                    <div class="reels-container space-y-4 no-scrollbar rounded-3xl" id="reels-feed" onscroll="handleShortsScroll()">
+                        <!-- Dynamic Shorts Injected Here -->
+                    </div>
+                </div>
+            </main>
+
+
+            <!-- ================= VIEW 3: CASH WALLET SECTION ================= -->
+            <main id="view-cash" class="hidden p-4 md:p-8 max-w-md mx-auto w-full space-y-5">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <button onclick="switchView('movies')" class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white"><i class="fas fa-arrow-left"></i></button>
+                        <h1 class="text-xl font-extrabold text-white">My Wallet</h1>
+                    </div>
+                    <!-- ORIGINAL SIMPLE TEXT BUTTON FOR RECORD -->
+                    <button onclick="openRecordsModal()" class="text-xs text-gray-300 font-semibold hover:underline">Record &gt;</button>
+                </div>
+
+                <div class="bg-amber-100 text-amber-900 border border-amber-300 rounded-xl px-3 py-2 flex items-center gap-2 text-xs font-semibold shadow-sm">
+                    <i class="fas fa-volume-high text-amber-600 animate-pulse"></i>
+                    <span id="wallet-ticker">18:51 BN**PJ successfully withdraws ₹20</span>
+                </div>
+
+                <div class="bg-gradient-to-r from-red-600 to-rose-500 rounded-2xl p-5 text-white shadow-xl space-y-4 glow-red">
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <i class="fas fa-coins text-yellow-300 text-2xl coin-spin"></i>
+                            <span id="wallet-coins-count" class="text-3xl font-black">108,176</span>
+                            <span class="text-sm font-bold text-yellow-200 ml-1">≈ ₹ <span id="wallet-rupees-count">10.82</span></span>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-6 text-xs border-t border-white/20 pt-3 text-white/90 font-medium">
+                        <div>Pending: <span class="font-bold">₹ 0</span></div>
+                        <div>Withdrawn: <span class="font-bold" id="total-withdrawn-text">₹ 0.00</span></div>
+                    </div>
+                </div>
+
+                <div class="bg-rose-50 border border-rose-200 rounded-2xl p-3.5 flex items-center justify-between shadow-sm">
+                    <div class="text-xs text-rose-950 font-bold">
+                        <p>Tips: Invite Friends to get <span class="text-red-600 font-black">₹5+10%+10%</span></p>
+                    </div>
+                    <button onclick="shareMovie()" class="bg-gradient-to-r from-red-500 to-rose-500 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow hover:scale-105 transition">Go</button>
+                </div>
+
+                <div class="space-y-3">
+                    <div class="flex gap-6 border-b border-white/10 text-sm font-bold pb-2">
+                        <button class="text-gray-400 hover:text-white">Phone Bill</button>
+                        <button class="text-brand-red border-b-2 border-brand-red pb-2 -mb-2">Transfer</button>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-3 pt-2">
+                        <div onclick="selectWithdrawCard(this, 10, 100000)" class="withdraw-card withdraw-card-active bg-brand-card border border-brand-border rounded-xl p-3.5 text-center cursor-pointer transition">
+                            <p class="text-lg font-black text-white">₹10</p>
+                            <p class="text-[10px] text-yellow-400 font-bold flex items-center justify-center gap-1 mt-1"><i class="fas fa-coins text-[8px]"></i> 100,000</p>
+                        </div>
+                        <div onclick="selectWithdrawCard(this, 20, 200000)" class="withdraw-card bg-brand-card border border-brand-border rounded-xl p-3.5 text-center cursor-pointer transition">
+                            <p class="text-lg font-black text-white">₹20</p>
+                            <p class="text-[10px] text-yellow-400 font-bold flex items-center justify-center gap-1 mt-1"><i class="fas fa-coins text-[8px]"></i> 200,000</p>
+                        </div>
+                        <div onclick="selectWithdrawCard(this, 50, 500000)" class="withdraw-card bg-brand-card border border-brand-border rounded-xl p-3.5 text-center cursor-pointer transition">
+                            <p class="text-lg font-black text-white">₹50</p>
+                            <p class="text-[10px] text-yellow-400 font-bold flex items-center justify-center gap-1 mt-1"><i class="fas fa-coins text-[8px]"></i> 500,000</p>
+                        </div>
+                        <div onclick="selectWithdrawCard(this, 105, 1050000)" class="withdraw-card bg-brand-card border border-brand-border rounded-xl p-3.5 text-center cursor-pointer transition">
+                            <p class="text-lg font-black text-white">₹105</p>
+                            <p class="text-[10px] text-yellow-400 font-bold flex items-center justify-center gap-1 mt-1"><i class="fas fa-coins text-[8px]"></i> 1,050,000</p>
+                        </div>
+                        <div onclick="selectWithdrawCard(this, 200, 2000000)" class="withdraw-card bg-brand-card border border-brand-border rounded-xl p-3.5 text-center cursor-pointer transition">
+                            <p class="text-lg font-black text-white">₹200</p>
+                            <p class="text-[10px] text-yellow-400 font-bold flex items-center justify-center gap-1 mt-1"><i class="fas fa-coins text-[8px]"></i> 2,000,000</p>
+                        </div>
+                        <div onclick="selectWithdrawCard(this, 500, 5000000)" class="withdraw-card bg-brand-card border border-brand-border rounded-xl p-3.5 text-center cursor-pointer transition">
+                            <p class="text-lg font-black text-white">₹500</p>
+                            <p class="text-[10px] text-yellow-400 font-bold flex items-center justify-center gap-1 mt-1"><i class="fas fa-coins text-[8px]"></i> 5,000,000</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="text-[11px] text-gray-400 space-y-1.5 pt-2 leading-relaxed">
+                    <p>- Earn cash rewards by watching videos & tasks!</p>
+                    <p>- Fill withdrawal info accurately. Processed within 24 hours.</p>
+                </div>
+
+                <div class="pt-2">
+                    <button onclick="openWithdrawModal()" class="w-full bg-rose-300 text-rose-900 font-black py-3.5 rounded-full text-base shadow-lg hover:bg-rose-400 transition">
+                        Withdraw
+                    </button>
+                </div>
+            </main>
+
+        </div>
+
+    </div>
+
+    <!-- MOBILE BOTTOM NAVIGATION -->
+    <nav class="md:hidden fixed bottom-0 left-0 right-0 z-50 glass-panel border-t border-brand-border px-6 py-2.5 flex justify-around items-center">
+        <button onclick="switchView('movies')" id="mobile-nav-movies" class="flex flex-col items-center gap-1 text-brand-red">
+            <i class="fas fa-film text-lg"></i>
+            <span class="text-[10px] font-bold">Movies</span>
+        </button>
+        <button onclick="switchView('shorts')" id="mobile-nav-shorts" class="flex flex-col items-center gap-1 text-gray-400 hover:text-white">
+            <i class="fas fa-bolt text-lg"></i>
+            <span class="text-[10px] font-bold">Shorts</span>
+        </button>
+        <button onclick="switchView('cash')" id="mobile-nav-cash" class="flex flex-col items-center gap-1 text-gray-400 hover:text-white">
+            <i class="fas fa-wallet text-lg text-brand-gold"></i>
+            <span class="text-[10px] font-bold">Cash</span>
+        </button>
+    </nav>
+
+
+    <!-- JavaScript Engine -->
+    <script>
+        // --- Supabase Config ---
+        const SUPABASE_URL = "https://ipawpmiuaqxfnxjgigeh.supabase.co";
+        const SUPABASE_KEY = "sb_publishable_BgEm2LyCKPvGdB8gLjKeUw_GiG7kU61";
+        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        let coins = 108176;
+        let totalWithdrawn = 0;
+        let userId = localStorage.getItem('vitflix_user_id') || "user_" + Math.floor(1000 + Math.random() * 9000);
+        localStorage.setItem('vitflix_user_id', userId);
+
+        let currentMovie = null;
+        let allMoviesList = [];
+        let allShortsList = [];
+        let totalWatchedSeconds = 0;
+        let watchTimerInterval = null;
+
+        let selectedRupees = 10;
+        let selectedCoinsReq = 100000;
+
+        let isFullScreenActive = false;
+
+        let shortsWatchedCount = 0;
+        let lastScrollTop = 0;
+
+        const milestones = [
+            { id: 0, mins: 2, seconds: 120, reward: 800, claimed: false },
+            { id: 1, mins: 10, seconds: 600, reward: 2000, claimed: false },
+            { id: 2, mins: 20, seconds: 1200, reward: 4000, claimed: false },
+            { id: 3, mins: 30, seconds: 1800, reward: 6000, claimed: false },
+            { id: 4, mins: 60, seconds: 3600, reward: 10000, claimed: false },
+            { id: 5, mins: 180, seconds: 10800, reward: 16000, claimed: false }
+        ];
+
+        // --- LOCAL STORAGE KEYS FOR PERSISTENT WATCH PROGRESS ---
+        const LS_WATCH_SECS = 'vitflix_watch_secs_' + userId;
+        const LS_CLAIMED_MAP = 'vitflix_claimed_milestones_' + userId;
+        const LS_COMPLETED_TIME = 'vitflix_all_claimed_time_' + userId;
+
+        function loadSavedWatchProgress() {
+            // Restore watched time
+            const savedSecs = localStorage.getItem(LS_WATCH_SECS);
+            if (savedSecs !== null) {
+                totalWatchedSeconds = parseInt(savedSecs, 10) || 0;
+            }
+
+            // Restore claimed status
+            const savedClaimed = localStorage.getItem(LS_CLAIMED_MAP);
+            if (savedClaimed) {
+                try {
+                    const claimedObj = JSON.parse(savedClaimed);
+                    milestones.forEach(m => {
+                        if (claimedObj[m.id] !== undefined) {
+                            m.claimed = claimedObj[m.id];
+                        }
+                    });
+                } catch(e) {}
+            }
+
+            // Check if ALL milestones are claimed and 3 hours passed
+            const completedTimestamp = localStorage.getItem(LS_COMPLETED_TIME);
+            if (completedTimestamp) {
+                const elapsedMs = Date.now() - parseInt(completedTimestamp, 10);
+                const threeHoursMs = 3 * 60 * 60 * 1000; // 3 Hours in Milliseconds
+
+                if (elapsedMs >= threeHoursMs) {
+                    // Reset progress after 3 hours of full completion
+                    resetWatchProgress();
+                    return;
+                }
+            }
+
+            updateWatchTimelineUI();
+        }
+
+        function saveWatchProgress() {
+            localStorage.setItem(LS_WATCH_SECS, totalWatchedSeconds);
+            
+            const claimedObj = {};
+            milestones.forEach(m => { claimedObj[m.id] = m.claimed; });
+            localStorage.setItem(LS_CLAIMED_MAP, JSON.stringify(claimedObj));
+
+            // Check if all milestones are claimed
+            const allClaimed = milestones.every(m => m.claimed);
+            if (allClaimed && !localStorage.getItem(LS_COMPLETED_TIME)) {
+                localStorage.setItem(LS_COMPLETED_TIME, Date.now());
+            }
+        }
+
+        function resetWatchProgress() {
+            totalWatchedSeconds = 0;
+            milestones.forEach(m => m.claimed = false);
+            localStorage.removeItem(LS_WATCH_SECS);
+            localStorage.removeItem(LS_CLAIMED_MAP);
+            localStorage.removeItem(LS_COMPLETED_TIME);
+            updateWatchTimelineUI();
+        }
+
+        const defaultShorts = [
+            {
+                id: "s1",
+                creator: "@MovieZone",
+                title: "Top Action Scene 2024 🔥 #shorts",
+                video_url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"
+            },
+            {
+                id: "s2",
+                creator: "@ActionCentral",
+                title: "Sci-Fi Stunt Scene 🚀",
+                video_url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4"
+            },
+            {
+                id: "s3",
+                creator: "@ComedyClips",
+                title: "Funny Clips Compilation 😂",
+                video_url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4"
+            }
+        ];
+
+        const tickerMessages = [
+            "18:51 BN**PJ successfully withdrew ₹20",
+            "18:52 Rahul_99 successfully withdrew ₹50",
+            "18:54 Aman_K successfully withdrew ₹10"
+        ];
+        let tickerIndex = 0;
+        setInterval(() => {
+            tickerIndex = (tickerIndex + 1) % tickerMessages.length;
+            const tickerEl = document.getElementById('payout-ticker');
+            const walletTickerEl = document.getElementById('wallet-ticker');
+            if (tickerEl) tickerEl.textContent = tickerMessages[tickerIndex];
+            if (walletTickerEl) walletTickerEl.textContent = tickerMessages[tickerIndex];
+        }, 3500);
+
+        // RECORDS MODAL (Withdrawal History)
+        function openRecordsModal() {
+            document.getElementById('records-modal').classList.remove('hidden');
+            fetchUserWithdrawalRecords();
+        }
+
+        function closeRecordsModal() {
+            document.getElementById('records-modal').classList.add('hidden');
+        }
+
+        async function fetchUserWithdrawalRecords() {
+            const listContainer = document.getElementById('records-list');
+            listContainer.innerHTML = `<div class="text-center py-6 text-xs text-gray-400"><i class="fas fa-circle-notch fa-spin text-brand-red mr-2"></i>Loading records...</div>`;
+
+            try {
+                const { data, error } = await _supabase.from('withdrawals').select('*').eq('user_id', userId).order('created_at', { ascending: false });
+
+                if (error || !data || data.length === 0) {
+                    listContainer.innerHTML = `<div class="text-center py-8 text-xs text-gray-500">No withdrawal records found yet.</div>`;
+                    return;
+                }
+
+                listContainer.innerHTML = data.map(rec => {
+                    let badgeClass = "bg-yellow-500/20 text-yellow-400 border-yellow-500/30";
+                    let statusText = "Pending";
+
+                    if (rec.status === 'Approved') {
+                        badgeClass = "bg-green-500/20 text-green-400 border-green-500/30";
+                        statusText = "Received (Mila)";
+                    } else if (rec.status === 'Rejected') {
+                        badgeClass = "bg-red-500/20 text-red-400 border-red-500/30";
+                        statusText = "Rejected (Refunded)";
+                    }
+
+                    return `
+                        <div class="bg-black/50 border border-white/10 rounded-xl p-3.5 flex items-center justify-between text-xs">
+                            <div class="space-y-1">
+                                <div class="font-extrabold text-white text-sm">₹${rec.amount_inr} Payout</div>
+                                <div class="text-[10px] text-gray-400 font-mono">${rec.payment_info}</div>
+                                <div class="text-[9px] text-gray-500">${new Date(rec.created_at).toLocaleDateString()} ${new Date(rec.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+                            </div>
+                            <div class="text-right space-y-1">
+                                <span class="px-2.5 py-1 rounded-full text-[9px] font-extrabold uppercase border ${badgeClass}">${statusText}</span>
+                                <div class="text-[10px] text-brand-gold font-bold"><i class="fas fa-coins text-[8px]"></i> ${rec.coins_used ? rec.coins_used.toLocaleString() : 0}</div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            } catch(e) {
+                listContainer.innerHTML = `<div class="text-center py-6 text-xs text-red-400">Failed to load records.</div>`;
+            }
+        }
+
+        function makeVideoFullScreen() {
+            const wrapper = document.getElementById('video-wrapper');
+            const btnIcon = document.getElementById('fs-btn-icon');
+
+            if (!isFullScreenActive) {
+                wrapper.classList.add('fullscreen-active');
+                
+                try {
+                    if (wrapper.requestFullscreen) wrapper.requestFullscreen();
+                    else if (wrapper.webkitRequestFullscreen) wrapper.webkitRequestFullscreen();
+                } catch(e) {}
+
+                btnIcon.className = "fas fa-compress text-brand-gold";
+                isFullScreenActive = true;
+                showToast('📺 Full Screen Mode');
+            } else {
+                wrapper.classList.remove('fullscreen-active');
+                
+                try {
+                    if (document.exitFullscreen) document.exitFullscreen();
+                    else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+                } catch(e) {}
+
+                btnIcon.className = "fas fa-expand text-brand-gold";
+                isFullScreenActive = false;
+                showToast('📺 Normal Mode');
+            }
+        }
+
+        function openDrawerMenu() { document.getElementById('menu-drawer').classList.remove('hidden'); }
+        function closeDrawerMenu() { document.getElementById('menu-drawer').classList.add('hidden'); }
+
+        function switchView(viewName) {
+            const moviesView = document.getElementById('view-movies');
+            const shortsView = document.getElementById('view-shorts');
+            const cashView = document.getElementById('view-cash');
+            
+            const mobNavMovies = document.getElementById('mobile-nav-movies');
+            const mobNavShorts = document.getElementById('mobile-nav-shorts');
+            const mobNavCash = document.getElementById('mobile-nav-cash');
+
+            moviesView.classList.add('hidden');
+            shortsView.classList.add('hidden');
+            cashView.classList.add('hidden');
+
+            mobNavMovies.className = "flex flex-col items-center gap-1 text-gray-400 hover:text-white";
+            mobNavShorts.className = "flex flex-col items-center gap-1 text-gray-400 hover:text-white";
+            mobNavCash.className = "flex flex-col items-center gap-1 text-gray-400 hover:text-white";
+
+            if (viewName === 'movies') {
+                moviesView.classList.remove('hidden');
+                mobNavMovies.className = "flex flex-col items-center gap-1 text-brand-red";
+            } else if (viewName === 'shorts') {
+                shortsView.classList.remove('hidden');
+                mobNavShorts.className = "flex flex-col items-center gap-1 text-brand-red";
+                renderShortsFeed();
+            } else if (viewName === 'cash') {
+                cashView.classList.remove('hidden');
+                mobNavCash.className = "flex flex-col items-center gap-1 text-brand-gold";
+            }
+        }
+
+        function renderShortsFeed(force = false) {
+            const feed = document.getElementById('reels-feed');
+            if (feed.children.length > 0 && !force) return;
+
+            const listToRender = (allShortsList.length > 0) ? allShortsList : defaultShorts;
+
+            feed.innerHTML = listToRender.map((short, index) => {
+                const url = short.video_url || "";
+                const ytId = getYouTubeId(url);
+                const dmId = getDailymotionId(url);
+
+                let playerHTML = "";
+
+                if (ytId) {
+                    playerHTML = `<iframe src="https://www.youtube-nocookie.com/embed/${ytId}?autoplay=1&mute=0&controls=0&loop=1&playlist=${ytId}&playsinline=1" allow="autoplay; encrypted-media" class="absolute inset-0 w-full h-full object-cover border-0 z-10"></iframe>`;
+                } else if (dmId) {
+                    playerHTML = `<iframe src="https://www.dailymotion.com/embed/video/${dmId}?autoplay=1&ui-logo=0" allow="autoplay; fullscreen" class="absolute inset-0 w-full h-full object-cover border-0 z-10"></iframe>`;
+                } else if (url.includes('drive.google.com')) {
+                    let driveUrl = url.replace('/view', '/preview');
+                    playerHTML = `<iframe src="${driveUrl}" class="absolute inset-0 w-full h-full border-0 z-10" allow="autoplay"></iframe>`;
+                } else {
+                    playerHTML = `<video loop playsinline controls class="absolute inset-0 w-full h-full object-cover z-10 bg-black"><source src="${url}" type="video/mp4"></video>`;
+                }
+
+                return `
+                    <div class="reel-card relative w-full h-[calc(100vh-160px)] md:h-[750px] bg-black rounded-3xl overflow-hidden border border-brand-border shadow-2xl flex flex-col justify-end" data-index="${index}">
+                        ${playerHTML}
+                        
+                        <div class="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/90 pointer-events-none z-15"></div>
+
+                        <div class="absolute right-3 bottom-16 flex flex-col items-center gap-5 z-30" onclick="event.stopPropagation()">
+                            <button onclick="rewardShortView(this)" class="short-reward-btn w-12 h-12 rounded-full glass-panel border border-white/20 bg-black/50 flex flex-col items-center justify-center text-gray-400 cursor-pointer z-30 opacity-80">
+                                <i class="fas fa-lock text-xs"></i>
+                                <span class="text-[8px] font-bold">0/2</span>
+                            </button>
+
+                            <button onclick="shareMovie()" class="flex flex-col items-center gap-1 text-white">
+                                <div class="w-11 h-11 rounded-full glass-panel flex items-center justify-center text-lg">
+                                    <i class="fas fa-share"></i>
+                                </div>
+                                <span class="text-[10px] font-bold">Share</span>
+                            </button>
+                        </div>
+
+                        <div class="relative z-30 p-5 space-y-1 pointer-events-none">
+                            <span class="font-bold text-sm text-white">${short.creator}</span>
+                            <p class="text-xs text-gray-200 line-clamp-2">${short.title}</p>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            updateShortRewardUI();
+        }
+
+        function handleShortsScroll() {
+            const feed = document.getElementById('reels-feed');
+            const cardHeight = feed.clientHeight;
+            const currentScroll = feed.scrollTop;
+
+            if (Math.abs(currentScroll - lastScrollTop) >= cardHeight * 0.7) {
+                lastScrollTop = currentScroll;
+                shortsWatchedCount++;
+                updateShortRewardUI();
+            }
+        }
+
+        function updateShortRewardUI() {
+            const rewardBtns = document.querySelectorAll('.short-reward-btn');
+            rewardBtns.forEach(btn => {
+                if (shortsWatchedCount >= 2) {
+                    btn.className = "short-reward-btn w-12 h-12 rounded-full glass-panel border border-brand-gold bg-brand-gold/20 flex flex-col items-center justify-center text-brand-gold animate-bounce shadow-lg shadow-yellow-500/50 cursor-pointer z-30";
+                    btn.innerHTML = `<i class="fas fa-coins text-sm"></i><span class="text-[8px] font-black">+100</span>`;
+                } else {
+                    btn.className = "short-reward-btn w-12 h-12 rounded-full glass-panel border border-white/20 bg-black/50 flex flex-col items-center justify-center text-gray-400 cursor-pointer z-30 opacity-80";
+                    btn.innerHTML = `<i class="fas fa-lock text-xs"></i><span class="text-[8px] font-bold">${shortsWatchedCount}/2</span>`;
+                }
+            });
+        }
+
+        async function rewardShortView(btn) {
+            if (shortsWatchedCount < 2) {
+                showToast(`🔒 Watch 2 short videos to unlock reward! (${shortsWatchedCount}/2 watched)`);
+                return;
+            }
+
+            shortsWatchedCount = 0;
+            updateShortRewardUI();
+
+            await addCoins(100);
+            showToast('🎉 Unlocked +100 Coins! Watch 2 more shorts for next reward.');
+        }
+
+        function selectWithdrawCard(el, rupees, coinsReq) {
+            document.querySelectorAll('.withdraw-card').forEach(card => card.classList.remove('withdraw-card-active'));
+            el.classList.add('withdraw-card-active');
+            selectedRupees = rupees;
+            selectedCoinsReq = coinsReq;
+        }
+
+        function openWithdrawModal() {
+            document.getElementById('modal-amount-text').textContent = `₹${selectedRupees}`;
+            document.getElementById('modal-coins-text').textContent = `${selectedCoinsReq.toLocaleString()} Coins`;
+            document.getElementById('withdraw-modal').classList.remove('hidden');
+        }
+
+        function closeWithdrawModal() { document.getElementById('withdraw-modal').classList.add('hidden'); }
+
+        async function submitWithdrawal() {
+            const upiVal = document.getElementById('upi-input').value.trim();
+            if (!upiVal) {
+                showToast('Enter your UPI ID or Paytm number!');
+                return;
+            }
+
+            if (coins < selectedCoinsReq) {
+                const diff = selectedCoinsReq - coins;
+                showToast(`Need ${diff.toLocaleString()} more coins for ₹${selectedRupees}.`);
+                closeWithdrawModal();
+                return;
+            }
+
+            try {
+                await _supabase.from('withdrawals').insert([{
+                    user_id: userId,
+                    amount_inr: selectedRupees,
+                    coins_used: selectedCoinsReq,
+                    payment_info: upiVal,
+                    status: 'Pending'
+                }]);
+            } catch (err) {
+                console.error("Withdrawal exception:", err);
+            }
+
+            coins -= selectedCoinsReq;
+            totalWithdrawn += selectedRupees;
+            updateUI();
+            await updateDBCoins();
+
+            closeWithdrawModal();
+            showToast(`🎉 ₹${selectedRupees} withdrawal request sent to Admin!`);
+            document.getElementById('upi-input').value = '';
+        }
+
+        function getYouTubeId(url) {
+            if (!url) return null;
+            const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|shorts\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+            const match = url.match(regExp);
+            return (match && match[2].length === 11) ? match[2] : null;
+        }
+
+        function getDailymotionId(url) {
+            if (!url) return null;
+            const regExp = /^.+dailymotion.com\/(video|hub)\/([^_]+)[^#]*$/;
+            const match = url.match(regExp);
+            if (match && match[2]) return match[2];
+            const shortMatch = url.match(/^.+dai.ly\/([^_]+)[^#]*$/);
+            return shortMatch ? shortMatch[1] : null;
+        }
+
+        function getPosterUrl(m) {
+            if (m.poster_url && m.poster_url.trim() !== "") return m.poster_url;
+            const ytId = getYouTubeId(m.video_url);
+            if (ytId) return `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
+            const dmId = getDailymotionId(m.video_url);
+            if (dmId) return `https://www.dailymotion.com/thumbnail/video/${dmId}`;
+            return "https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=800";
+        }
+
+        async function fetchUserCoins() {
+            try {
+                let { data, error } = await _supabase.from('profiles').select('coins').eq('id', userId).single();
+                if (error && error.code === 'PGRST116') {
+                    await _supabase.from('profiles').insert([{ id: userId, coins: 108176 }]);
+                    coins = 108176;
+                } else if (data) {
+                    coins = data.coins || 108176;
+                }
+            } catch (err) { coins = 108176; }
+            updateUI();
+        }
+
+        async function updateDBCoins() {
+            try { await _supabase.from('profiles').update({ coins: coins }).eq('id', userId); } catch (e) {}
+        }
+
+        function updateUI() {
+            const formatted = coins.toLocaleString();
+            const rupees = (coins / 10000).toFixed(2);
+
+            document.getElementById('user-coins-header').textContent = formatted;
+            document.getElementById('user-coins-desktop').textContent = formatted;
+            document.getElementById('user-rupees-desktop').textContent = rupees;
+            document.getElementById('menu-coins').textContent = formatted;
+            document.getElementById('menu-rupees').textContent = rupees;
+            document.getElementById('rank-coins').textContent = formatted;
+
+            document.getElementById('wallet-coins-count').textContent = formatted;
+            document.getElementById('wallet-rupees-count').textContent = rupees;
+            document.getElementById('total-withdrawn-text').textContent = `₹ ${totalWithdrawn.toFixed(2)}`;
+        }
+
+        async function addCoins(amount) {
+            coins += amount;
+            if (coins < 0) coins = 0;
+            updateUI();
+            await updateDBCoins();
+        }
+
+        async function loadMoviesFromDB() {
+            try {
+                let { data } = await _supabase.from('movies').select('*').order('created_at', { ascending: false });
+                if (data && data.length > 0) {
+                    allMoviesList = data;
+                } else {
+                    allMoviesList = [
+                        {
+                            title: "Hero (Full Movie)",
+                            year: "2024",
+                            genre: "Action, Drama",
+                            poster_url: "https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=800",
+                            video_url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+                        }
+                    ];
+                }
+            } catch (e) { console.error(e); }
+
+            currentMovie = allMoviesList[0];
+            loadTopMovieUI();
+            renderMoviesGrid();
+        }
+
+        async function loadShortsFromDB() {
+            try {
+                let { data } = await _supabase.from('shorts').select('*').order('created_at', { ascending: false });
+                if (data && data.length > 0) {
+                    allShortsList = data;
+                } else {
+                    allShortsList = defaultShorts;
+                }
+            } catch (e) {
+                allShortsList = defaultShorts;
+            }
+        }
+
+        function loadTopMovieUI() {
+            document.getElementById('top-movie-title').textContent = currentMovie.title;
+            document.getElementById('top-movie-year').textContent = currentMovie.year || "2024";
+            document.getElementById('top-movie-genre').textContent = currentMovie.genre || "Action";
+            document.getElementById('top-poster-img').src = getPosterUrl(currentMovie);
+            document.getElementById('video-placeholder').classList.remove('hidden');
+            document.getElementById('player-mount').innerHTML = '';
+            if (watchTimerInterval) clearInterval(watchTimerInterval);
+        }
+
+        function startCurrentVideo() {
+            document.getElementById('video-placeholder').classList.add('hidden');
+            const mount = document.getElementById('player-mount');
+            const url = currentMovie.video_url || "";
+
+            const ytId = getYouTubeId(url);
+            const dmId = getDailymotionId(url);
+
+            if (dmId) {
+                mount.innerHTML = `<iframe src="https://www.dailymotion.com/embed/video/${dmId}?autoplay=1&ui-logo=0" allow="autoplay; fullscreen" class="w-full h-full rounded-xl border-0"></iframe>`;
+            } else if (url.includes('drive.google.com')) {
+                let driveUrl = url.replace('/view', '/preview');
+                mount.innerHTML = `<iframe src="${driveUrl}" class="w-full h-full rounded-xl border-0" allow="autoplay" allowfullscreen></iframe>`;
+            } else if (ytId) {
+                const currentOrigin = (window.location.origin && window.location.origin !== "null") ? window.location.origin : "https://www.youtube.com";
+                mount.innerHTML = `<iframe src="https://www.youtube-nocookie.com/embed/${ytId}?autoplay=1&rel=0&origin=${encodeURIComponent(currentOrigin)}" allow="autoplay; encrypted-media" allowfullscreen class="w-full h-full rounded-xl border-0"></iframe>`;
+            } else {
+                mount.innerHTML = `<video controls autoplay playsinline class="w-full h-full rounded-xl object-cover"><source src="${url}" type="video/mp4"></video>`;
+            }
+
+            if (watchTimerInterval) clearInterval(watchTimerInterval);
+            watchTimerInterval = setInterval(() => {
+                totalWatchedSeconds++;
+                updateWatchTimelineUI();
+                saveWatchProgress(); // Persistent save progress
+            }, 1000);
+        }
+
+        function updateWatchTimelineUI() {
+            const mins = Math.floor(totalWatchedSeconds / 60);
+            const secs = totalWatchedSeconds % 60;
+            document.getElementById('watch-time-text').textContent = `${mins} mins ${secs}s watched`;
+
+            const progressPercent = Math.min(100, (totalWatchedSeconds / 10800) * 100);
+            document.getElementById('milestone-progress-line').style.width = Math.max(2, progressPercent) + '%';
+
+            milestones.forEach((m) => {
+                const dotEl = document.getElementById(`m-dot-${m.id}`);
+                if (m.claimed) {
+                    dotEl.className = "w-6 h-6 rounded-full bg-green-500 text-white border-2 border-green-400 flex items-center justify-center text-[10px] font-bold";
+                    dotEl.innerHTML = `<i class="fas fa-check"></i>`;
+                } else if (totalWatchedSeconds >= m.seconds) {
+                    dotEl.className = "w-6 h-6 rounded-full bg-brand-gold text-black border-2 border-yellow-300 flex items-center justify-center text-[10px] font-extrabold animate-bounce shadow-lg shadow-yellow-500/50";
+                    dotEl.innerHTML = `<i class="fas fa-unlock"></i>`;
+                } else {
+                    dotEl.className = "w-6 h-6 rounded-full bg-brand-card border-2 border-gray-600 flex items-center justify-center text-[10px] text-white font-bold";
+                    dotEl.innerHTML = `<i class="fas fa-lock text-[8px]"></i>`;
+                }
+            });
+        }
+
+        async function claimMilestone(index) {
+            const m = milestones[index];
+            if (totalWatchedSeconds < m.seconds) {
+                showToast(`Watch ${m.mins} mins to unlock +${m.reward.toLocaleString()} Coins!`);
+                return;
+            }
+            if (m.claimed) {
+                showToast(`Already claimed +${m.reward.toLocaleString()} Coins!`);
+                return;
+            }
+
+            m.claimed = true;
+            await addCoins(m.reward);
+            saveWatchProgress(); // Save updated claim state
+            
+            updateWatchTimelineUI();
+            showToast(`🎉 Unlocked +${m.reward.toLocaleString()} Coins!`);
+        }
+
+        function simulateWatchTime(secs) {
+            totalWatchedSeconds += secs;
+            updateWatchTimelineUI();
+            saveWatchProgress();
+            showToast(`Watch time boosted +${secs/60} mins!`);
+        }
+
+        // TAPPING MOVIE CARD PLAYS VIDEO & SCROLLS TO TOP CONTAINER!
+        function playSelectedMovie(index) {
+            currentMovie = allMoviesList[index];
+            loadTopMovieUI();
+            startCurrentVideo();
+            
+            // FIX: Smooth Scroll to top of main content container
+            const mainScroll = document.getElementById('main-scroll-container');
+            if (mainScroll) {
+                mainScroll.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+
+            showToast(`🎬 Playing: ${currentMovie.title}`);
+        }
+
+        function renderMoviesGrid() {
+            const grid = document.getElementById('movies-grid');
+            grid.innerHTML = allMoviesList.map((m, index) => {
+                const thumbnail = getPosterUrl(m);
+                return `
+                    <div class="card-hover cursor-pointer group bg-brand-card border border-brand-border/80 hover:border-brand-red/50 rounded-2xl p-2.5 transition-all duration-300 shadow-lg" onclick="playSelectedMovie(${index})">
+                        <div class="relative aspect-[2/3] overflow-hidden rounded-xl bg-gray-900">
+                            <img src="${thumbnail}" alt="${m.title}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                            <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                                <div class="w-10 h-10 rounded-full bg-brand-red flex items-center justify-center text-white text-sm shadow-xl glow-red transform group-hover:scale-110 transition-transform">
+                                    <i class="fas fa-play ml-0.5"></i>
+                                </div>
+                            </div>
+                            <span class="absolute top-2 left-2 bg-brand-red/90 text-white text-[9px] font-extrabold px-2 py-0.5 rounded-md shadow backdrop-blur-md">HD</span>
+                        </div>
+                        <div class="mt-2.5 px-1">
+                            <h3 class="text-xs font-bold truncate text-white group-hover:text-brand-red transition">${m.title}</h3>
+                            <p class="text-[10px] text-gray-400 mt-0.5 font-medium">${m.year || '2024'} • ${m.genre || 'Cinema'}</p>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function toggleLike() { showToast('Added to liked movies!'); }
+        function shareMovie() { showToast('Invite link copied!'); }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-msg').textContent = msg;
+            toast.classList.remove('hidden');
+            setTimeout(() => toast.classList.add('hidden'), 3000);
+        }
+
+        window.onload = () => {
+            fetchUserCoins();
+            loadSavedWatchProgress(); // Restores time, claimed status & checks 3h reset
+            loadMoviesFromDB();
+            loadShortsFromDB();
+        };
+    </script>
+</body>
+</html>
