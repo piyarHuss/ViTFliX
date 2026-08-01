@@ -597,7 +597,7 @@
             <main id="view-shorts" class="hidden p-2 md:p-6 flex justify-center items-center">
                 <div class="w-full max-w-md relative">
                     <div class="reels-container space-y-4 no-scrollbar rounded-3xl" id="reels-feed">
-                        <!-- Dynamic Shorts Injected Here -->
+                        <!-- Dynamic Shorts Injected Here with Lazy Loading -->
                     </div>
                 </div>
             </main>
@@ -733,10 +733,12 @@
         let totalWatchedSeconds = 0;
         let watchTimerInterval = null;
 
-        // --- SHORTS TIMERS & MONETAG AD SYSTEM ---
+        // --- SHORTS TIMERS & LAZY OBSERVER STATE ---
         let shorts2MinSecs = 0; // 120s timer for NO AD
         let shorts3MinSecs = 0; // 180s timer for WITH AD
         let shortsTimerInterval = null;
+        let shortsObserver = null;
+        let activeShortIndex = -1;
 
         // Monetag Ad Limit Tracking State
         let totalAdsWatched = parseInt(localStorage.getItem('vitflix_total_ads_' + userId) || '0');
@@ -806,7 +808,7 @@
             { id: 5, mins: 180, seconds: 10800, reward: 16000, claimed: false }
         ];
 
-        // --- DAILY CHECK-IN LOGIC & SECURE ANTI-BUG CONTROLS ---
+        // --- DAILY CHECK-IN LOGIC ---
         function getTodayDateStr() {
             const d = new Date();
             return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
@@ -842,7 +844,6 @@
                 actBtnText.textContent = "Checked-in Today! (Come Back Tomorrow)";
             }
 
-            // Days 1-6 Cards
             const grid6 = document.getElementById('checkin-grid-6');
             const dayRewards6 = [500, 1000, 1500, 2000, 2500, 3000];
 
@@ -866,7 +867,6 @@
                 `;
             }).join('');
 
-            // Long-term Chests (Day 7, 14, 20, 30)
             const gridLong = document.getElementById('checkin-grid-long');
             const longDays = [
                 { day: 7, amt: "3,500", icon: "fa-gift" },
@@ -941,7 +941,7 @@
             return "https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=800";
         }
 
-        // --- LOCAL STORAGE KEYS FOR PERSISTENT WATCH PROGRESS ---
+        // LOCAL STORAGE WATCH PROGRESS
         const LS_WATCH_SECS = 'vitflix_watch_secs_' + userId;
         const LS_CLAIMED_MAP = 'vitflix_claimed_milestones_' + userId;
 
@@ -1123,9 +1123,10 @@
             mobNavShorts.className = "flex flex-col items-center gap-1 text-gray-400 hover:text-white";
             mobNavCash.className = "flex flex-col items-center gap-1 text-gray-400 hover:text-white";
 
-            // Stop Shorts Timer if leaving Shorts
+            // Stop Shorts Timer and clear iframe if leaving Shorts
             if (viewName !== 'shorts') {
                 if (shortsTimerInterval) clearInterval(shortsTimerInterval);
+                unloadAllShorts();
             }
 
             if (viewName === 'movies') {
@@ -1338,7 +1339,7 @@
         }
 
 
-        // ================= SHORTS FEED & TIMED REWARDS WITH MONETAG ADS =================
+        // ================= SHORTS FEED & SINGLE ACTIVE VIDEO LAZY LOADING =================
 
         function startShortsTimers() {
             if (shortsTimerInterval) clearInterval(shortsTimerInterval);
@@ -1355,40 +1356,28 @@
 
             const listToRender = (allShortsList.length > 0) ? allShortsList : defaultShorts;
 
+            // Render skeleton containers without loading all video players at once
             feed.innerHTML = listToRender.map((short, index) => {
-                const url = short.video_url || "";
-                const ytId = getYouTubeId(url);
-                const dmId = getDailymotionId(url);
-
-                let playerHTML = "";
-
-                if (ytId) {
-                    playerHTML = `<iframe src="https://www.youtube-nocookie.com/embed/${ytId}?autoplay=1&mute=0&controls=0&loop=1&playlist=${ytId}&playsinline=1" allow="autoplay; encrypted-media" class="absolute inset-0 w-full h-full object-cover border-0 z-10"></iframe>`;
-                } else if (dmId) {
-                    playerHTML = `<iframe src="https://www.dailymotion.com/embed/video/${dmId}?autoplay=1&ui-logo=0" allow="autoplay; fullscreen" class="absolute inset-0 w-full h-full object-cover border-0 z-10"></iframe>`;
-                } else if (url.includes('drive.google.com')) {
-                    let driveUrl = url.replace('/view', '/preview');
-                    playerHTML = `<iframe src="${driveUrl}" class="absolute inset-0 w-full h-full border-0 z-10" allow="autoplay"></iframe>`;
-                } else {
-                    playerHTML = `<video loop playsinline controls class="absolute inset-0 w-full h-full object-cover z-10 bg-black"><source src="${url}" type="video/mp4"></video>`;
-                }
-
                 return `
                     <div class="reel-card relative w-full h-[calc(100vh-160px)] md:h-[750px] bg-black rounded-3xl overflow-hidden border border-brand-border shadow-2xl flex flex-col justify-end" data-index="${index}">
-                        ${playerHTML}
+                        
+                        <!-- DYNAMIC SINGLE PLAYER MOUNT CONTAINER -->
+                        <div id="short-media-${index}" class="absolute inset-0 bg-black">
+                            <img src="${getPosterUrl(short)}" class="w-full h-full object-cover opacity-20" alt="thumbnail">
+                        </div>
                         
                         <div class="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/90 pointer-events-none z-15"></div>
 
                         <!-- REWARD BUTTONS SIDE PANEL -->
                         <div class="absolute right-3 bottom-16 flex flex-col items-center gap-4 z-30" onclick="event.stopPropagation()">
                             
-                            <!-- 2 MINUTE REWARD BUTTON (NO AD) -->
+                            <!-- 2 MINUTE REWARD BUTTON (NO AD - 100 COINS) -->
                             <button onclick="claim2MinReward(this)" class="btn-reward-2min w-12 h-12 rounded-full glass-panel border border-white/20 bg-black/50 flex flex-col items-center justify-center text-gray-400 cursor-pointer z-30 opacity-90 transition">
                                 <i class="fas fa-clock text-xs"></i>
                                 <span class="text-[8px] font-bold timer-txt-2m">0/2m</span>
                             </button>
 
-                            <!-- 3 MINUTE SUPER REWARD BUTTON (WITH AD) -->
+                            <!-- 3 MINUTE SUPER REWARD BUTTON (WITH AD - 500 COINS) -->
                             <button onclick="claim3MinReward(this)" class="btn-reward-3min w-12 h-12 rounded-full glass-panel border border-purple-500/30 bg-purple-950/40 flex flex-col items-center justify-center text-purple-300 cursor-pointer z-30 opacity-90 transition">
                                 <i class="fas fa-play-circle text-xs text-purple-400"></i>
                                 <span class="text-[8px] font-bold timer-txt-3m">0/3m</span>
@@ -1403,7 +1392,7 @@
                         </div>
 
                         <div class="relative z-30 p-5 space-y-1 pointer-events-none">
-                            <span class="font-bold text-sm text-white">${short.creator}</span>
+                            <span class="font-bold text-sm text-white">${short.creator || '@User'}</span>
                             <p class="text-xs text-gray-200 line-clamp-2">${short.title}</p>
                         </div>
                     </div>
@@ -1411,17 +1400,88 @@
             }).join('');
 
             updateShortsRewardButtonsUI();
+            setupShortsLazyObserver();
+        }
+
+        // INTERSECTION OBSERVER: ONLY LOAD ACTIVE VISIBLE SHORT VIDEO
+        function setupShortsLazyObserver() {
+            if (shortsObserver) shortsObserver.disconnect();
+
+            const feedContainer = document.getElementById('reels-feed');
+            const options = {
+                root: feedContainer,
+                threshold: 0.6
+            };
+
+            shortsObserver = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const index = parseInt(entry.target.getAttribute('data-index'), 10);
+                        if (activeShortIndex !== index) {
+                            activeShortIndex = index;
+                            loadActiveShortVideoOnly(index);
+                        }
+                    }
+                });
+            }, options);
+
+            document.querySelectorAll('.reel-card').forEach(card => shortsObserver.observe(card));
+        }
+
+        function loadActiveShortVideoOnly(index) {
+            const listToRender = (allShortsList.length > 0) ? allShortsList : defaultShorts;
+
+            // Unload all inactive video players
+            listToRender.forEach((_, i) => {
+                if (i !== index) {
+                    const mount = document.getElementById(`short-media-${i}`);
+                    if (mount && mount.childElementCount > 1) {
+                        mount.innerHTML = `<img src="${getPosterUrl(listToRender[i])}" class="w-full h-full object-cover opacity-20" alt="thumbnail">`;
+                    }
+                }
+            });
+
+            // Load player inside active card only
+            const activeMount = document.getElementById(`short-media-${index}`);
+            if (!activeMount) return;
+
+            const short = listToRender[index];
+            const url = short.video_url || "";
+            const ytId = getYouTubeId(url);
+            const dmId = getDailymotionId(url);
+
+            let playerHTML = "";
+
+            if (ytId) {
+                playerHTML = `<iframe src="https://www.youtube-nocookie.com/embed/${ytId}?autoplay=1&mute=0&controls=0&loop=1&playlist=${ytId}&playsinline=1" allow="autoplay; encrypted-media" class="absolute inset-0 w-full h-full object-cover border-0 z-10"></iframe>`;
+            } else if (dmId) {
+                playerHTML = `<iframe src="https://www.dailymotion.com/embed/video/${dmId}?autoplay=1&ui-logo=0" allow="autoplay; fullscreen" class="absolute inset-0 w-full h-full object-cover border-0 z-10"></iframe>`;
+            } else if (url.includes('drive.google.com')) {
+                let driveUrl = url.replace('/view', '/preview');
+                playerHTML = `<iframe src="${driveUrl}" class="absolute inset-0 w-full h-full border-0 z-10" allow="autoplay"></iframe>`;
+            } else {
+                playerHTML = `<video loop playsinline controls autoplay class="absolute inset-0 w-full h-full object-cover z-10 bg-black"><source src="${url}" type="video/mp4"></video>`;
+            }
+
+            activeMount.innerHTML = playerHTML;
+        }
+
+        function unloadAllShorts() {
+            const listToRender = (allShortsList.length > 0) ? allShortsList : defaultShorts;
+            listToRender.forEach((_, i) => {
+                const mount = document.getElementById(`short-media-${i}`);
+                if (mount) mount.innerHTML = '';
+            });
+            activeShortIndex = -1;
         }
 
         function updateShortsRewardButtonsUI() {
-            // Update 2-Min Buttons (No Ad)
+            // Update 2-Min Buttons (No Ad - 100 Coins)
             const btns2m = document.querySelectorAll('.btn-reward-2min');
-            const left2m = 120 - shorts2MinSecs;
             btns2m.forEach(btn => {
-                const txt = btn.querySelector('.timer-txt-2m');
                 if (shorts2MinSecs >= 120) {
                     btn.className = "btn-reward-2min w-12 h-12 rounded-full glass-panel border-2 border-brand-gold bg-brand-gold/20 flex flex-col items-center justify-center text-brand-gold animate-bounce shadow-lg shadow-yellow-500/50 cursor-pointer z-30";
-                    btn.innerHTML = `<i class="fas fa-gift text-sm"></i><span class="text-[8px] font-black">+200</span>`;
+                    btn.innerHTML = `<i class="fas fa-gift text-sm"></i><span class="text-[8px] font-black">+100</span>`;
                 } else {
                     const m = Math.floor(shorts2MinSecs / 60);
                     const s = shorts2MinSecs % 60;
@@ -1430,7 +1490,7 @@
                 }
             });
 
-            // Update 3-Min Buttons (With Ad)
+            // Update 3-Min Buttons (With Ad - 500 Coins)
             const btns3m = document.querySelectorAll('.btn-reward-3min');
             btns3m.forEach(btn => {
                 if (shorts3MinSecs >= 180) {
@@ -1445,22 +1505,22 @@
             });
         }
 
-        // CLAIM 2-MINUTE REWARD (NO AD REQUIRED)
+        // CLAIM 2-MINUTE REWARD (NO AD - 100 COINS)
         async function claim2MinReward(btn) {
             if (shorts2MinSecs < 120) {
                 const rem = 120 - shorts2MinSecs;
-                showToast(`⏳ Watch ${rem}s more for 2-Min No-Ad Bonus!`);
+                showToast(`⏳ Watch ${rem}s more for 2-Min Bonus!`);
                 return;
             }
 
             shorts2MinSecs = 0; // Reset timer
             spawnFlyingCoins(btn);
-            await addCoins(200);
+            await addCoins(100); // 100 COINS REWARD
             updateShortsRewardButtonsUI();
-            showToast('🎉 Won +200 Coins! (2-Min Bonus - No Ad)');
+            showToast('🎉 Won +100 Coins! (2-Min Bonus - No Ad)');
         }
 
-        // CLAIM 3-MINUTE REWARD (TRIGGERS MONETAG AD & 27 AD / 1-HR COOLDOWN LOGIC)
+        // CLAIM 3-MINUTE REWARD (MONETAG AD & 27 AD / 1-HR COOLDOWN)
         async function claim3MinReward(btn) {
             if (shorts3MinSecs < 180) {
                 const rem = 180 - shorts3MinSecs;
@@ -1470,7 +1530,6 @@
 
             const now = Date.now();
 
-            // Check if user is in 1-Hour Ad Cooldown Period
             if (adCooldownUntil && now < adCooldownUntil) {
                 const leftMins = Math.ceil((adCooldownUntil - now) / 60000);
                 showToast(`⚡ Ad Rest active (${leftMins}m remaining). Direct reward granted!`);
@@ -1482,7 +1541,6 @@
                 return;
             }
 
-            // Check if 1-Hour Cooldown expired -> Reset
             if (adCooldownUntil && now >= adCooldownUntil) {
                 adCooldownUntil = 0;
                 totalAdsWatched = 0;
@@ -1490,18 +1548,15 @@
                 localStorage.setItem('vitflix_total_ads_' + userId, '0');
             }
 
-            // TRIGGER MONETAG REWARDED AD
             showToast('📺 Opening Ad... Watch complete ad to claim +500 coins');
 
             if (typeof show_11473636 === 'function') {
                 show_11473636().then(async () => {
-                    // AD WATCHED SUCCESSFULLY
                     totalAdsWatched++;
                     localStorage.setItem('vitflix_total_ads_' + userId, totalAdsWatched.toString());
 
-                    // Check if 27 Ads limit reached
                     if (totalAdsWatched >= 27) {
-                        adCooldownUntil = Date.now() + (60 * 60 * 1000); // 1 Hour from now
+                        adCooldownUntil = Date.now() + (60 * 60 * 1000);
                         localStorage.setItem('vitflix_ad_cooldown_' + userId, adCooldownUntil.toString());
                         showToast('🎉 You watched 27 ads! 1-Hour No-Ad Pause activated!');
                     } else {
@@ -1515,14 +1570,12 @@
 
                 }).catch(async (err) => {
                     console.error("Ad display issue:", err);
-                    // Fallback reward if ad failed to load
                     shorts3MinSecs = 0;
                     await addCoins(500);
                     updateShortsRewardButtonsUI();
                     showToast('🎉 Won +500 Coins Super Reward!');
                 });
             } else {
-                // Fallback if Monetag script blocked
                 shorts3MinSecs = 0;
                 await addCoins(500);
                 updateShortsRewardButtonsUI();
