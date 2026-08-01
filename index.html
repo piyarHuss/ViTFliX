@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>VitFlix Premium - Movies, Shorts & Cash Wallet</title>
+    <title>VitFlix Premium - Movies, Videos, Shorts & Cash Wallet</title>
 
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -11,6 +11,9 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <!-- Supabase JS SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- MONETAG AD SDK -->
+    <script src='//libtl.com/sdk.js' data-zone='11473636' data-sdk='show_11473636'></script>
 
     <script>
         tailwind.config = {
@@ -77,6 +80,8 @@
         }
 
         .glow-red { box-shadow: 0 0 25px rgba(229, 9, 20, 0.35); }
+        .glow-gold { box-shadow: 0 0 25px rgba(255, 215, 0, 0.4); }
+        .glow-purple { box-shadow: 0 0 25px rgba(168, 85, 247, 0.4); }
 
         .coin-spin { animation: spin 4s linear infinite; }
         @keyframes spin { 0% { transform: rotateY(0deg); } 100% { transform: rotateY(360deg); } }
@@ -119,6 +124,40 @@
             background-color: rgba(229, 9, 20, 0.08) !important;
             box-shadow: 0 0 15px rgba(229, 9, 20, 0.2);
         }
+
+        /* FLYING COINS ANIMATION STYLES */
+        @keyframes flyToHeader {
+            0% {
+                transform: translate(0, 0) scale(1);
+                opacity: 1;
+            }
+            50% {
+                opacity: 1;
+                transform: translate(calc(var(--target-x) * 0.5), calc(var(--target-y) * 0.5 - 50px)) scale(1.3);
+            }
+            100% {
+                transform: translate(var(--target-x), var(--target-y)) scale(0.3);
+                opacity: 0;
+            }
+        }
+
+        .flying-coin {
+            position: fixed;
+            z-index: 200000;
+            pointer-events: none;
+            color: #FFD700;
+            font-size: 22px;
+            animation: flyToHeader 0.9s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+            filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.8));
+        }
+
+        .box-shake {
+            animation: shake 0.6s infinite alternate;
+        }
+        @keyframes shake {
+            0% { transform: rotate(-5deg) scale(1); }
+            100% { transform: rotate(5deg) scale(1.08); }
+        }
     </style>
 </head>
 <body class="min-h-screen pb-16 md:pb-0">
@@ -128,6 +167,43 @@
         <div class="glass-panel text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 border-brand-red/40 border toast-animate">
             <i class="fas fa-coins text-brand-gold text-lg"></i>
             <span id="toast-msg" class="text-sm font-semibold">Reward claimed successfully!</span>
+        </div>
+    </div>
+
+    <!-- DAILY CHECK-IN MODAL (ONLY ACCESSIBLE FROM DRAWER MENU) -->
+    <div id="checkin-modal" class="fixed inset-0 bg-black/85 z-[160] flex items-center justify-center p-4 hidden backdrop-blur-md">
+        <div class="bg-gradient-to-b from-[#1a130b] via-[#121217] to-[#08080a] border border-amber-500/40 w-full max-w-md rounded-3xl p-5 space-y-4 shadow-2xl relative overflow-hidden">
+            
+            <button onclick="closeCheckInModal()" class="absolute top-4 right-4 w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-gray-300 hover:text-white text-sm z-20">
+                <i class="fas fa-times"></i>
+            </button>
+
+            <!-- Header Banner -->
+            <div class="text-center space-y-1 pt-2">
+                <div class="inline-flex items-center gap-2 bg-amber-500/20 border border-amber-500/40 px-3 py-1 rounded-full text-brand-gold text-xs font-bold">
+                    <i class="fas fa-calendar-check animate-pulse"></i> Daily Rewards
+                </div>
+                <h2 class="text-xl font-black text-white tracking-tight">Sign in to get rewards</h2>
+                <p class="text-xs text-gray-400">You have checked in for <span id="checkin-days-count" class="text-brand-gold font-extrabold">1</span> days.</p>
+            </div>
+
+            <!-- Days 1 to 6 Grid -->
+            <div class="grid grid-cols-3 sm:grid-cols-6 gap-2 pt-2" id="checkin-grid-6">
+                <!-- Injected via JS -->
+            </div>
+
+            <!-- Long Term Chests (Day 7, 14, 20, 30) -->
+            <div class="grid grid-cols-4 gap-2 pt-1" id="checkin-grid-long">
+                <!-- Injected via JS -->
+            </div>
+
+            <!-- Main Check-in Action Button -->
+            <div class="pt-2">
+                <button id="checkin-act-btn" onclick="performDailyCheckIn(event)" class="w-full bg-gradient-to-r from-amber-500 via-orange-500 to-red-600 hover:brightness-110 text-white font-black py-3.5 rounded-2xl text-sm shadow-xl glow-gold flex items-center justify-center gap-2 transition active:scale-95">
+                    <i class="fas fa-coins text-yellow-300"></i>
+                    <span id="checkin-btn-text">Check-in +5,000</span>
+                </button>
+            </div>
         </div>
     </div>
 
@@ -150,10 +226,21 @@
                         <i class="fas fa-film text-brand-red text-base w-5"></i>
                         <span>Movies & Cinema</span>
                     </button>
+                    <button onclick="switchView('videos'); closeDrawerMenu();" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-sm transition text-white hover:bg-brand-red">
+                        <i class="fas fa-play-circle text-purple-400 text-base w-5"></i>
+                        <span>Watch Videos (Bonus)</span>
+                    </button>
                     <button onclick="switchView('shorts'); closeDrawerMenu();" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-sm transition text-white hover:bg-brand-red">
                         <i class="fas fa-bolt text-brand-gold text-base w-5"></i>
                         <span>Shorts Videos</span>
                     </button>
+                    
+                    <!-- DAILY CHECK-IN EXCLUSIVE IN MENU -->
+                    <button onclick="openCheckInModal(); closeDrawerMenu();" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition text-brand-gold bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20">
+                        <i class="fas fa-calendar-check text-brand-gold text-base w-5"></i>
+                        <span>Daily Check-in Bonus</span>
+                    </button>
+
                     <button onclick="switchView('cash'); closeDrawerMenu();" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-sm transition text-white hover:bg-brand-red">
                         <i class="fas fa-wallet text-green-400 text-base w-5"></i>
                         <span>Cash / My Wallet</span>
@@ -165,9 +252,9 @@
                 <div class="text-xs text-gray-400">Total Wallet Coins</div>
                 <div class="flex items-center gap-2">
                     <i class="fas fa-coins text-brand-gold text-xl coin-spin"></i>
-                    <span id="menu-coins" class="text-xl font-extrabold text-white">108,176</span>
+                    <span id="menu-coins" class="text-xl font-extrabold text-white">100</span>
                 </div>
-                <p class="text-[11px] text-brand-gold font-bold">≈ ₹ <span id="menu-rupees">10.82</span> INR</p>
+                <p class="text-[11px] text-brand-gold font-bold">≈ ₹ <span id="menu-rupees">0.01</span> INR</p>
             </div>
         </div>
     </div>
@@ -232,6 +319,10 @@
                         <i class="fas fa-film text-lg"></i>
                         <span>Movies</span>
                     </button>
+                    <button onclick="switchView('videos')" id="nav-videos-btn" class="w-full flex items-center gap-4 px-4 py-3 rounded-xl font-semibold text-sm transition text-gray-400 hover:text-white hover:bg-brand-card">
+                        <i class="fas fa-play-circle text-lg text-purple-400"></i>
+                        <span>Watch Videos</span>
+                    </button>
                     <button onclick="switchView('shorts')" id="nav-shorts-btn" class="w-full flex items-center gap-4 px-4 py-3 rounded-xl font-semibold text-sm transition text-gray-400 hover:text-white hover:bg-brand-card">
                         <i class="fas fa-bolt text-lg text-brand-gold"></i>
                         <span>Shorts</span>
@@ -250,13 +341,13 @@
                 </div>
                 <div class="flex items-center gap-2">
                     <i class="fas fa-coins text-brand-gold text-2xl coin-spin"></i>
-                    <span id="user-coins-desktop" class="text-2xl font-extrabold text-white">108,176</span>
+                    <span id="user-coins-desktop" class="text-2xl font-extrabold text-white">100</span>
                 </div>
-                <p class="text-[11px] text-brand-gold font-bold">≈ ₹ <span id="user-rupees-desktop">10.82</span> INR</p>
+                <p class="text-[11px] text-brand-gold font-bold">≈ ₹ <span id="user-rupees-desktop">0.01</span> INR</p>
             </div>
         </aside>
 
-        <!-- MAIN CONTENT AREA (ADDED ID FOR SCROLL FIX) -->
+        <!-- MAIN CONTENT AREA -->
         <div id="main-scroll-container" class="flex-1 flex flex-col h-screen overflow-y-auto no-scrollbar">
 
             <!-- CLEAN TOP NAVBAR -->
@@ -275,9 +366,9 @@
                     </div>
                 </div>
 
-                <div onclick="switchView('cash')" class="flex items-center gap-2 bg-brand-gold/10 border border-brand-gold/30 px-3 py-1.5 rounded-full cursor-pointer">
+                <div id="target-header-coins" onclick="switchView('cash')" class="flex items-center gap-2 bg-brand-gold/10 border border-brand-gold/30 px-3 py-1.5 rounded-full cursor-pointer">
                     <i class="fas fa-coins text-brand-gold coin-spin text-sm"></i>
-                    <span id="user-coins-header" class="text-brand-gold font-bold text-xs md:text-sm">108,176</span>
+                    <span id="user-coins-header" class="text-brand-gold font-bold text-xs md:text-sm">100</span>
                 </div>
             </header>
 
@@ -382,10 +473,7 @@
                             </div>
 
                             <div class="pt-2 border-t border-white/5 flex items-center justify-between text-xs text-gray-400">
-                                <span>Watch time updates every second</span>
-                                <button onclick="simulateWatchTime(120)" class="text-brand-gold font-bold text-xs hover:underline flex items-center gap-1">
-                                    <i class="fas fa-bolt"></i> Speed Test (+2m)
-                                </button>
+                                <span>Watch time updates automatically every second</span>
                             </div>
                         </div>
 
@@ -421,7 +509,7 @@
                                 <div class="flex items-center gap-3 text-xs bg-brand-red/10 border border-brand-red/20 p-2.5 rounded-xl">
                                     <span class="text-brand-red font-bold w-4">42</span>
                                     <span class="flex-1 font-bold">You (Current User)</span>
-                                    <span class="text-brand-gold font-extrabold" id="rank-coins">108,176</span>
+                                    <span class="text-brand-gold font-extrabold" id="rank-coins">100</span>
                                 </div>
                             </div>
                         </div>
@@ -443,10 +531,72 @@
             </main>
 
 
+            <!-- ================= VIEW: WATCH VIDEOS SECTION ================= -->
+            <main id="view-videos" class="hidden p-4 md:p-8 space-y-8 max-w-7xl mx-auto w-full">
+                <div class="space-y-6">
+                    <div>
+                        <h1 id="v2-video-title" class="text-xl md:text-2xl font-extrabold text-white">Select Video To Play</h1>
+                        <p id="v2-video-desc" class="text-xs text-gray-400 mt-1">Watch videos & unlock 5-minute evolving treasure boxes for high coin rewards!</p>
+                    </div>
+
+                    <!-- Video Player Box V2 -->
+                    <div class="video-container glow-purple relative border border-purple-500/30 bg-black rounded-2xl overflow-hidden shadow-2xl">
+                        <div id="v2-video-placeholder" class="absolute inset-0 flex flex-col items-center justify-center bg-black/80 rounded-xl z-10 cursor-pointer" onclick="startV2Video()">
+                            <img id="v2-poster-img" src="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800" alt="Poster" class="absolute inset-0 w-full h-full object-cover opacity-30">
+                            <div class="relative z-10 flex flex-col items-center p-4 text-center">
+                                <div class="w-16 h-16 md:w-20 md:h-20 rounded-full bg-purple-600 flex items-center justify-center mb-3 hover:scale-110 transition shadow-2xl glow-purple">
+                                    <i class="fas fa-play text-white text-2xl md:text-3xl ml-1"></i>
+                                </div>
+                                <p class="text-white font-bold text-base md:text-lg">Tap to Play Stream</p>
+                                <p class="text-purple-300 text-xs mt-1 font-semibold flex items-center gap-1">
+                                    <i class="fas fa-gift"></i> Unlock Piggy, Cat & Dragon Boxes Every 5 Mins!
+                                </p>
+                            </div>
+                        </div>
+                        <div id="v2-player-mount" class="w-full h-full"></div>
+                    </div>
+
+                    <!-- 5-MINUTE EVOLVING REWARD TIMELINE CONTAINER -->
+                    <div class="glass-panel rounded-2xl p-5 border border-purple-500/30 space-y-4 bg-gradient-to-r from-purple-950/40 via-black to-brand-card shadow-2xl">
+                        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-3">
+                            <div class="flex items-center gap-2">
+                                <i class="fas fa-gift text-brand-gold text-lg animate-pulse"></i>
+                                <span id="v2-stage-title" class="font-extrabold text-white text-sm md:text-base">Level 1: Piggy Bank Stage 🐷</span>
+                            </div>
+                            <span id="v2-watch-time-text" class="text-xs font-bold text-purple-300">0 mins watched</span>
+                        </div>
+
+                        <!-- Progress Line & Dynamic Boxes Grid -->
+                        <div class="relative py-4 px-2">
+                            <div class="absolute top-1/2 left-4 right-4 h-2 bg-white/10 -translate-y-1/2 rounded-full overflow-hidden">
+                                <div id="v2-timeline-line" class="h-full bg-gradient-to-r from-purple-500 via-pink-500 to-brand-gold transition-all duration-300" style="width: 0%;"></div>
+                            </div>
+
+                            <div class="relative flex justify-between items-center z-10 text-center" id="v2-boxes-container">
+                                <!-- Dynamically Rendered Boxes -->
+                            </div>
+                        </div>
+
+                        <div class="flex items-center justify-between text-[11px] text-gray-400 pt-1 border-t border-white/5">
+                            <span>🎁 Endless rewards: Unlock new stages & high coins every 5 minutes!</span>
+                        </div>
+                    </div>
+
+                    <!-- VIDEOS GRID -->
+                    <section class="space-y-4 pt-2">
+                        <h2 class="text-lg font-bold flex items-center gap-2 text-white">
+                            <i class="fas fa-film text-purple-400"></i> Video Streaming List
+                        </h2>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4" id="videos-grid-v2"></div>
+                    </section>
+                </div>
+            </main>
+
+
             <!-- ================= VIEW 2: SHORTS SECTION ================= -->
             <main id="view-shorts" class="hidden p-2 md:p-6 flex justify-center items-center">
                 <div class="w-full max-w-md relative">
-                    <div class="reels-container space-y-4 no-scrollbar rounded-3xl" id="reels-feed" onscroll="handleShortsScroll()">
+                    <div class="reels-container space-y-4 no-scrollbar rounded-3xl" id="reels-feed">
                         <!-- Dynamic Shorts Injected Here -->
                     </div>
                 </div>
@@ -473,8 +623,8 @@
                     <div>
                         <div class="flex items-center gap-2">
                             <i class="fas fa-coins text-yellow-300 text-2xl coin-spin"></i>
-                            <span id="wallet-coins-count" class="text-3xl font-black">108,176</span>
-                            <span class="text-sm font-bold text-yellow-200 ml-1">≈ ₹ <span id="wallet-rupees-count">10.82</span></span>
+                            <span id="wallet-coins-count" class="text-3xl font-black">100</span>
+                            <span class="text-sm font-bold text-yellow-200 ml-1">≈ ₹ <span id="wallet-rupees-count">0.01</span></span>
                         </div>
                     </div>
 
@@ -542,10 +692,14 @@
     </div>
 
     <!-- MOBILE BOTTOM NAVIGATION -->
-    <nav class="md:hidden fixed bottom-0 left-0 right-0 z-50 glass-panel border-t border-brand-border px-6 py-2.5 flex justify-around items-center">
+    <nav class="md:hidden fixed bottom-0 left-0 right-0 z-50 glass-panel border-t border-brand-border px-4 py-2.5 flex justify-around items-center">
         <button onclick="switchView('movies')" id="mobile-nav-movies" class="flex flex-col items-center gap-1 text-brand-red">
             <i class="fas fa-film text-lg"></i>
             <span class="text-[10px] font-bold">Movies</span>
+        </button>
+        <button onclick="switchView('videos')" id="mobile-nav-videos" class="flex flex-col items-center gap-1 text-gray-400 hover:text-white">
+            <i class="fas fa-play-circle text-lg text-purple-400"></i>
+            <span class="text-[10px] font-bold">Videos</span>
         </button>
         <button onclick="switchView('shorts')" id="mobile-nav-shorts" class="flex flex-col items-center gap-1 text-gray-400 hover:text-white">
             <i class="fas fa-bolt text-lg"></i>
@@ -565,7 +719,8 @@
         const SUPABASE_KEY = "sb_publishable_BgEm2LyCKPvGdB8gLjKeUw_GiG7kU61";
         const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        let coins = 108176;
+        // NEW USER STARTS WITH ONLY 100 FREE COINS
+        let coins = 100;
         let totalWithdrawn = 0;
         let userId = localStorage.getItem('vitflix_user_id') || "user_" + Math.floor(1000 + Math.random() * 9000);
         localStorage.setItem('vitflix_user_id', userId);
@@ -573,16 +728,74 @@
         let currentMovie = null;
         let allMoviesList = [];
         let allShortsList = [];
+        let allV2VideosList = [];
+        
         let totalWatchedSeconds = 0;
         let watchTimerInterval = null;
+
+        // --- SHORTS TIMERS & MONETAG AD SYSTEM ---
+        let shorts2MinSecs = 0; // 120s timer for NO AD
+        let shorts3MinSecs = 0; // 180s timer for WITH AD
+        let shortsTimerInterval = null;
+
+        // Monetag Ad Limit Tracking State
+        let totalAdsWatched = parseInt(localStorage.getItem('vitflix_total_ads_' + userId) || '0');
+        let adCooldownUntil = parseInt(localStorage.getItem('vitflix_ad_cooldown_' + userId) || '0');
+
+        // MULTI-STAGE EVOLVING BOX THEMES
+        const boxThemes = [
+            {
+                stageName: "Level 1: Piggy Bank Stage 🐷",
+                iconClass: "fa-piggy-bank",
+                boxes: [
+                    { id: 0, mins: 5, seconds: 300, claimed: false },
+                    { id: 1, mins: 10, seconds: 600, claimed: false },
+                    { id: 2, mins: 15, seconds: 900, claimed: false },
+                    { id: 3, mins: 20, seconds: 1200, claimed: false },
+                    { id: 4, mins: 25, seconds: 1500, claimed: false },
+                    { id: 5, mins: 30, seconds: 1800, claimed: false }
+                ]
+            },
+            {
+                stageName: "Level 2: Lucky Cat Stage 🐱",
+                iconClass: "fa-cat",
+                boxes: [
+                    { id: 6, mins: 35, seconds: 2100, claimed: false },
+                    { id: 7, mins: 40, seconds: 2400, claimed: false },
+                    { id: 8, mins: 45, seconds: 2700, claimed: false },
+                    { id: 9, mins: 50, seconds: 3000, claimed: false },
+                    { id: 10, mins: 55, seconds: 3300, claimed: false },
+                    { id: 11, mins: 60, seconds: 3600, claimed: false }
+                ]
+            },
+            {
+                stageName: "Level 3: Dragon Treasure Vault 🐲",
+                iconClass: "fa-dragon",
+                boxes: [
+                    { id: 12, mins: 65, seconds: 3900, claimed: false },
+                    { id: 13, mins: 70, seconds: 4200, claimed: false },
+                    { id: 14, mins: 75, seconds: 4500, claimed: false },
+                    { id: 15, mins: 80, seconds: 4800, claimed: false },
+                    { id: 16, mins: 85, seconds: 5100, claimed: false },
+                    { id: 17, mins: 90, seconds: 5400, claimed: false }
+                ]
+            }
+        ];
+
+        let v2ClaimedMapState = {};
+        let currentV2Video = null;
+        let v2WatchSeconds = 0;
+        let v2TimerInterval = null;
+
+        // DAILY CHECK-IN SYSTEM STATE
+        let checkInStreak = 1;
+        let lastCheckInDate = localStorage.getItem('vitflix_last_checkin_date_' + userId) || null;
+        let claimedCheckInDays = JSON.parse(localStorage.getItem('vitflix_claimed_checkin_days_' + userId)) || [];
 
         let selectedRupees = 10;
         let selectedCoinsReq = 100000;
 
         let isFullScreenActive = false;
-
-        let shortsWatchedCount = 0;
-        let lastScrollTop = 0;
 
         const milestones = [
             { id: 0, mins: 2, seconds: 120, reward: 800, claimed: false },
@@ -593,68 +806,186 @@
             { id: 5, mins: 180, seconds: 10800, reward: 16000, claimed: false }
         ];
 
+        // --- DAILY CHECK-IN LOGIC & SECURE ANTI-BUG CONTROLS ---
+        function getTodayDateStr() {
+            const d = new Date();
+            return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+        }
+
+        function canCheckInToday() {
+            return lastCheckInDate !== getTodayDateStr();
+        }
+
+        function openCheckInModal() {
+            renderCheckInUI();
+            document.getElementById('checkin-modal').classList.remove('hidden');
+        }
+
+        function closeCheckInModal() {
+            document.getElementById('checkin-modal').classList.add('hidden');
+        }
+
+        function renderCheckInUI() {
+            document.getElementById('checkin-days-count').textContent = claimedCheckInDays.length;
+
+            const isAvailableToday = canCheckInToday();
+            const actBtn = document.getElementById('checkin-act-btn');
+            const actBtnText = document.getElementById('checkin-btn-text');
+
+            if (isAvailableToday) {
+                actBtn.disabled = false;
+                actBtn.className = "w-full bg-gradient-to-r from-amber-500 via-orange-500 to-red-600 hover:brightness-110 text-white font-black py-3.5 rounded-2xl text-sm shadow-xl glow-gold flex items-center justify-center gap-2 transition active:scale-95 cursor-pointer";
+                actBtnText.textContent = "Check-in +5,000 Coins";
+            } else {
+                actBtn.disabled = true;
+                actBtn.className = "w-full bg-gray-800 border border-gray-700 text-gray-500 font-black py-3.5 rounded-2xl text-sm shadow flex items-center justify-center gap-2 transition cursor-not-allowed";
+                actBtnText.textContent = "Checked-in Today! (Come Back Tomorrow)";
+            }
+
+            // Days 1-6 Cards
+            const grid6 = document.getElementById('checkin-grid-6');
+            const dayRewards6 = [500, 1000, 1500, 2000, 2500, 3000];
+
+            grid6.innerHTML = dayRewards6.map((amt, idx) => {
+                const dayNum = idx + 1;
+                const isClaimed = claimedCheckInDays.includes(dayNum);
+                const isCurrent = (claimedCheckInDays.length + 1 === dayNum) && isAvailableToday;
+
+                let cardClass = "bg-black/50 border border-white/10 rounded-2xl p-2.5 text-center flex flex-col items-center justify-between";
+                if (isClaimed) cardClass = "bg-amber-500/10 border border-amber-500/40 rounded-2xl p-2.5 text-center flex flex-col items-center justify-between opacity-60";
+                if (isCurrent) cardClass = "bg-amber-500/20 border-2 border-amber-400 rounded-2xl p-2.5 text-center flex flex-col items-center justify-between shadow-lg box-shake";
+
+                return `
+                    <div class="${cardClass}">
+                        <span class="text-[10px] font-bold text-amber-300">+${amt}</span>
+                        <div class="my-1.5">
+                            ${isClaimed ? '<i class="fas fa-check-circle text-green-400 text-lg"></i>' : '<i class="fas fa-coins text-brand-gold text-base"></i>'}
+                        </div>
+                        <span class="text-[9px] text-gray-400 font-semibold">Day ${dayNum}</span>
+                    </div>
+                `;
+            }).join('');
+
+            // Long-term Chests (Day 7, 14, 20, 30)
+            const gridLong = document.getElementById('checkin-grid-long');
+            const longDays = [
+                { day: 7, amt: "3,500", icon: "fa-gift" },
+                { day: 14, amt: "3,500", icon: "fa-box-open" },
+                { day: 20, amt: "3,500", icon: "fa-gem" },
+                { day: 30, amt: "8,000", icon: "fa-trophy" }
+            ];
+
+            gridLong.innerHTML = longDays.map(item => {
+                const isClaimed = claimedCheckInDays.includes(item.day);
+                let cardClass = "bg-gradient-to-b from-amber-950/40 to-black border border-amber-500/30 rounded-2xl p-3 text-center flex flex-col items-center justify-between";
+                if (isClaimed) cardClass = "bg-black/60 border border-white/10 rounded-2xl p-3 text-center flex flex-col items-center justify-between opacity-60";
+
+                return `
+                    <div class="${cardClass}">
+                        <span class="text-[10px] font-black text-brand-gold">${item.amt}</span>
+                        <div class="my-1 text-amber-400 text-lg">
+                            ${isClaimed ? '<i class="fas fa-check-circle text-green-400"></i>' : `<i class="fas ${item.icon}"></i>`}
+                        </div>
+                        <span class="text-[9px] text-gray-400 font-bold">Day ${item.day}</span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function performDailyCheckIn(e) {
+            if (!canCheckInToday()) {
+                showToast("⚠️ Already checked in today! Come back tomorrow.");
+                return;
+            }
+
+            const todayStr = getTodayDateStr();
+            lastCheckInDate = todayStr;
+            localStorage.setItem('vitflix_last_checkin_date_' + userId, todayStr);
+
+            const nextDayNumber = claimedCheckInDays.length + 1;
+            claimedCheckInDays.push(nextDayNumber);
+            localStorage.setItem('vitflix_claimed_checkin_days_' + userId, JSON.stringify(claimedCheckInDays));
+
+            let checkInReward = 5000;
+            if (nextDayNumber === 30) checkInReward = 8000;
+            else if ([7, 14, 20].includes(nextDayNumber)) checkInReward = 3500;
+
+            spawnFlyingCoins(e.currentTarget);
+            await addCoins(checkInReward);
+
+            renderCheckInUI();
+            showToast(`🎉 Daily Check-in Successful! +${checkInReward.toLocaleString()} Coins added.`);
+        }
+
+
+        // --- ENHANCED URL PARSER ---
+        function getYouTubeId(url) {
+            if (!url) return null;
+            const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|shorts\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+            const match = url.match(regExp);
+            return (match && match[2].length === 11) ? match[2] : null;
+        }
+
+        function getDailymotionId(url) {
+            if (!url) return null;
+            const match = url.match(/(?:dailymotion\.com\/(?:video|hub)\/|dai\.ly\/)([a-zA-Z0-9]+)/);
+            return match ? match[1] : null;
+        }
+
+        function getPosterUrl(m) {
+            if (m.poster_url && m.poster_url.trim() !== "") return m.poster_url;
+            const ytId = getYouTubeId(m.video_url);
+            if (ytId) return `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
+            const dmId = getDailymotionId(m.video_url);
+            if (dmId) return `https://www.dailymotion.com/thumbnail/video/${dmId}`;
+            return "https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=800";
+        }
+
         // --- LOCAL STORAGE KEYS FOR PERSISTENT WATCH PROGRESS ---
         const LS_WATCH_SECS = 'vitflix_watch_secs_' + userId;
         const LS_CLAIMED_MAP = 'vitflix_claimed_milestones_' + userId;
-        const LS_COMPLETED_TIME = 'vitflix_all_claimed_time_' + userId;
+
+        const LS_V2_WATCH_SECS = 'vitflix_v2_watch_secs_' + userId;
+        const LS_V2_BOXES_MAP = 'vitflix_v2_boxes_' + userId;
 
         function loadSavedWatchProgress() {
-            // Restore watched time
             const savedSecs = localStorage.getItem(LS_WATCH_SECS);
-            if (savedSecs !== null) {
-                totalWatchedSeconds = parseInt(savedSecs, 10) || 0;
-            }
+            if (savedSecs !== null) totalWatchedSeconds = parseInt(savedSecs, 10) || 0;
 
-            // Restore claimed status
             const savedClaimed = localStorage.getItem(LS_CLAIMED_MAP);
             if (savedClaimed) {
                 try {
                     const claimedObj = JSON.parse(savedClaimed);
                     milestones.forEach(m => {
-                        if (claimedObj[m.id] !== undefined) {
-                            m.claimed = claimedObj[m.id];
-                        }
+                        if (claimedObj[m.id] !== undefined) m.claimed = claimedObj[m.id];
                     });
                 } catch(e) {}
             }
 
-            // Check if ALL milestones are claimed and 3 hours passed
-            const completedTimestamp = localStorage.getItem(LS_COMPLETED_TIME);
-            if (completedTimestamp) {
-                const elapsedMs = Date.now() - parseInt(completedTimestamp, 10);
-                const threeHoursMs = 3 * 60 * 60 * 1000; // 3 Hours in Milliseconds
+            const v2Secs = localStorage.getItem(LS_V2_WATCH_SECS);
+            if (v2Secs !== null) v2WatchSeconds = parseInt(v2Secs, 10) || 0;
 
-                if (elapsedMs >= threeHoursMs) {
-                    // Reset progress after 3 hours of full completion
-                    resetWatchProgress();
-                    return;
-                }
+            const v2ClaimedMap = localStorage.getItem(LS_V2_BOXES_MAP);
+            if (v2ClaimedMap) {
+                try {
+                    v2ClaimedMapState = JSON.parse(v2ClaimedMap);
+                } catch(e) {}
             }
 
             updateWatchTimelineUI();
+            updateV2BoxesTimelineUI();
         }
 
         function saveWatchProgress() {
             localStorage.setItem(LS_WATCH_SECS, totalWatchedSeconds);
-            
             const claimedObj = {};
             milestones.forEach(m => { claimedObj[m.id] = m.claimed; });
             localStorage.setItem(LS_CLAIMED_MAP, JSON.stringify(claimedObj));
-
-            // Check if all milestones are claimed
-            const allClaimed = milestones.every(m => m.claimed);
-            if (allClaimed && !localStorage.getItem(LS_COMPLETED_TIME)) {
-                localStorage.setItem(LS_COMPLETED_TIME, Date.now());
-            }
         }
 
-        function resetWatchProgress() {
-            totalWatchedSeconds = 0;
-            milestones.forEach(m => m.claimed = false);
-            localStorage.removeItem(LS_WATCH_SECS);
-            localStorage.removeItem(LS_CLAIMED_MAP);
-            localStorage.removeItem(LS_COMPLETED_TIME);
-            updateWatchTimelineUI();
+        function saveV2Progress() {
+            localStorage.setItem(LS_V2_WATCH_SECS, v2WatchSeconds);
+            localStorage.setItem(LS_V2_BOXES_MAP, JSON.stringify(v2ClaimedMapState));
         }
 
         const defaultShorts = [
@@ -663,18 +994,15 @@
                 creator: "@MovieZone",
                 title: "Top Action Scene 2024 🔥 #shorts",
                 video_url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"
-            },
+            }
+        ];
+
+        const defaultVideos = [
             {
-                id: "s2",
-                creator: "@ActionCentral",
-                title: "Sci-Fi Stunt Scene 🚀",
-                video_url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4"
-            },
-            {
-                id: "s3",
-                creator: "@ComedyClips",
-                title: "Funny Clips Compilation 😂",
-                video_url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4"
+                title: "Dailymotion Trending Video 🔥",
+                desc: "Watch high quality Dailymotion video stream.",
+                poster_url: "https://www.dailymotion.com/thumbnail/video/x8q8mmv",
+                video_url: "https://www.dailymotion.com/video/x8q8mmv"
             }
         ];
 
@@ -692,7 +1020,7 @@
             if (walletTickerEl) walletTickerEl.textContent = tickerMessages[tickerIndex];
         }, 3500);
 
-        // RECORDS MODAL (Withdrawal History)
+        // RECORDS MODAL
         function openRecordsModal() {
             document.getElementById('records-modal').classList.remove('hidden');
             fetchUserWithdrawalRecords();
@@ -751,23 +1079,19 @@
 
             if (!isFullScreenActive) {
                 wrapper.classList.add('fullscreen-active');
-                
                 try {
                     if (wrapper.requestFullscreen) wrapper.requestFullscreen();
                     else if (wrapper.webkitRequestFullscreen) wrapper.webkitRequestFullscreen();
                 } catch(e) {}
-
                 btnIcon.className = "fas fa-compress text-brand-gold";
                 isFullScreenActive = true;
                 showToast('📺 Full Screen Mode');
             } else {
                 wrapper.classList.remove('fullscreen-active');
-                
                 try {
                     if (document.exitFullscreen) document.exitFullscreen();
                     else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
                 } catch(e) {}
-
                 btnIcon.className = "fas fa-expand text-brand-gold";
                 isFullScreenActive = false;
                 showToast('📺 Normal Mode');
@@ -777,34 +1101,252 @@
         function openDrawerMenu() { document.getElementById('menu-drawer').classList.remove('hidden'); }
         function closeDrawerMenu() { document.getElementById('menu-drawer').classList.add('hidden'); }
 
+        // SWITCH VIEW FUNCTION
         function switchView(viewName) {
             const moviesView = document.getElementById('view-movies');
+            const videosView = document.getElementById('view-videos');
             const shortsView = document.getElementById('view-shorts');
             const cashView = document.getElementById('view-cash');
             
             const mobNavMovies = document.getElementById('mobile-nav-movies');
+            const mobNavVideos = document.getElementById('mobile-nav-videos');
             const mobNavShorts = document.getElementById('mobile-nav-shorts');
             const mobNavCash = document.getElementById('mobile-nav-cash');
 
             moviesView.classList.add('hidden');
+            videosView.classList.add('hidden');
             shortsView.classList.add('hidden');
             cashView.classList.add('hidden');
 
             mobNavMovies.className = "flex flex-col items-center gap-1 text-gray-400 hover:text-white";
+            mobNavVideos.className = "flex flex-col items-center gap-1 text-gray-400 hover:text-white";
             mobNavShorts.className = "flex flex-col items-center gap-1 text-gray-400 hover:text-white";
             mobNavCash.className = "flex flex-col items-center gap-1 text-gray-400 hover:text-white";
+
+            // Stop Shorts Timer if leaving Shorts
+            if (viewName !== 'shorts') {
+                if (shortsTimerInterval) clearInterval(shortsTimerInterval);
+            }
 
             if (viewName === 'movies') {
                 moviesView.classList.remove('hidden');
                 mobNavMovies.className = "flex flex-col items-center gap-1 text-brand-red";
+            } else if (viewName === 'videos') {
+                videosView.classList.remove('hidden');
+                mobNavVideos.className = "flex flex-col items-center gap-1 text-purple-400";
+                loadVideosFromDB();
             } else if (viewName === 'shorts') {
                 shortsView.classList.remove('hidden');
                 mobNavShorts.className = "flex flex-col items-center gap-1 text-brand-red";
                 renderShortsFeed();
+                startShortsTimers();
             } else if (viewName === 'cash') {
                 cashView.classList.remove('hidden');
                 mobNavCash.className = "flex flex-col items-center gap-1 text-brand-gold";
             }
+        }
+
+        // ================= WATCH VIDEOS LOGIC =================
+        async function loadVideosFromDB() {
+            try {
+                let { data } = await _supabase.from('videos').select('*').order('created_at', { ascending: false });
+                if (data && data.length > 0) {
+                    allV2VideosList = data;
+                } else {
+                    allV2VideosList = defaultVideos;
+                }
+            } catch(e) {
+                allV2VideosList = defaultVideos;
+            }
+            renderV2VideosGrid();
+            updateV2BoxesTimelineUI();
+        }
+
+        function renderV2VideosGrid() {
+            if (!currentV2Video && allV2VideosList.length > 0) {
+                currentV2Video = allV2VideosList[0];
+                loadV2TopVideoUI();
+            }
+
+            const grid = document.getElementById('videos-grid-v2');
+            grid.innerHTML = allV2VideosList.map((v, idx) => {
+                const poster = getPosterUrl(v);
+                return `
+                    <div onclick="playV2Video(${idx})" class="card-hover cursor-pointer group bg-brand-card border border-brand-border rounded-2xl p-2.5 transition shadow-lg">
+                        <div class="relative aspect-video overflow-hidden rounded-xl bg-gray-900">
+                            <img src="${poster}" alt="poster" class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
+                            <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
+                                <div class="w-10 h-10 rounded-full bg-purple-600 flex items-center justify-center text-white text-sm shadow-xl glow-purple">
+                                    <i class="fas fa-play ml-0.5"></i>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mt-2.5 px-1">
+                            <h3 class="text-xs font-bold truncate text-white group-hover:text-purple-400 transition">${v.title}</h3>
+                            <p class="text-[10px] text-gray-400 mt-0.5 line-clamp-1">${v.desc || 'Bonus Video'}</p>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function loadV2TopVideoUI() {
+            document.getElementById('v2-video-title').textContent = currentV2Video.title;
+            document.getElementById('v2-video-desc').textContent = currentV2Video.desc || "Watch video & collect 5-minute surprise treasure boxes!";
+            document.getElementById('v2-poster-img').src = getPosterUrl(currentV2Video);
+            document.getElementById('v2-video-placeholder').classList.remove('hidden');
+            document.getElementById('v2-player-mount').innerHTML = '';
+            if (v2TimerInterval) clearInterval(v2TimerInterval);
+        }
+
+        function playV2Video(index) {
+            currentV2Video = allV2VideosList[index];
+            loadV2TopVideoUI();
+            startV2Video();
+
+            const mainScroll = document.getElementById('main-scroll-container');
+            if (mainScroll) mainScroll.scrollTo({ top: 0, behavior: 'smooth' });
+            showToast(`🎬 Playing: ${currentV2Video.title}`);
+        }
+
+        function startV2Video() {
+            document.getElementById('v2-video-placeholder').classList.add('hidden');
+            const mount = document.getElementById('v2-player-mount');
+            const url = currentV2Video.video_url || "";
+
+            const ytId = getYouTubeId(url);
+            const dmId = getDailymotionId(url);
+
+            if (dmId) {
+                mount.innerHTML = `<iframe src="https://www.dailymotion.com/embed/video/${dmId}?autoplay=1&ui-logo=0" allow="autoplay; fullscreen" class="w-full h-full rounded-xl border-0" allowfullscreen></iframe>`;
+            } else if (ytId) {
+                mount.innerHTML = `<iframe src="https://www.youtube-nocookie.com/embed/${ytId}?autoplay=1&rel=0" allow="autoplay; encrypted-media" class="w-full h-full rounded-xl border-0" allowfullscreen></iframe>`;
+            } else if (url.includes('drive.google.com')) {
+                let driveUrl = url.replace('/view', '/preview');
+                mount.innerHTML = `<iframe src="${driveUrl}" class="w-full h-full rounded-xl border-0" allow="autoplay" allowfullscreen></iframe>`;
+            } else {
+                mount.innerHTML = `<video controls autoplay playsinline class="w-full h-full rounded-xl object-cover"><source src="${url}" type="video/mp4"></video>`;
+            }
+
+            if (v2TimerInterval) clearInterval(v2TimerInterval);
+            v2TimerInterval = setInterval(() => {
+                v2WatchSeconds++;
+                updateV2BoxesTimelineUI();
+                saveV2Progress();
+            }, 1000);
+        }
+
+        function updateV2BoxesTimelineUI() {
+            const mins = Math.floor(v2WatchSeconds / 60);
+            const secs = v2WatchSeconds % 60;
+            document.getElementById('v2-watch-time-text').textContent = `${mins}m ${secs}s watched`;
+
+            let currentStageIdx = Math.floor(v2WatchSeconds / 1800);
+            if (currentStageIdx >= boxThemes.length) currentStageIdx = boxThemes.length - 1;
+
+            const stage = boxThemes[currentStageIdx];
+            document.getElementById('v2-stage-title').textContent = stage.stageName;
+
+            const stageStartSecs = currentStageIdx * 1800;
+            const stageElapsedSecs = v2WatchSeconds - stageStartSecs;
+            const progressPercent = Math.min(100, (stageElapsedSecs / 1800) * 100);
+            document.getElementById('v2-timeline-line').style.width = Math.max(2, progressPercent) + '%';
+
+            const container = document.getElementById('v2-boxes-container');
+            container.innerHTML = stage.boxes.map((box) => {
+                const isClaimed = !!v2ClaimedMapState[box.id];
+                const isUnlocked = v2WatchSeconds >= box.seconds && !isClaimed;
+
+                let iconClass = `fas ${stage.iconClass} text-xs text-gray-400`;
+                let boxClass = "w-10 h-10 rounded-2xl bg-brand-card border-2 border-gray-700 flex flex-col items-center justify-center text-gray-400";
+                let badgeText = "?";
+
+                if (isClaimed) {
+                    iconClass = "fas fa-check text-xs text-white";
+                    boxClass = "w-10 h-10 rounded-2xl bg-green-500 border-2 border-green-400 flex flex-col items-center justify-center text-white shadow-lg";
+                    badgeText = "Done";
+                } else if (isUnlocked) {
+                    iconClass = `fas ${stage.iconClass} text-sm text-yellow-300 animate-bounce`;
+                    boxClass = "w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-500 to-yellow-300 border-2 border-yellow-200 flex flex-col items-center justify-center text-black shadow-lg shadow-yellow-500/50 box-shake cursor-pointer";
+                    badgeText = "OPEN";
+                }
+
+                return `
+                    <div class="flex flex-col items-center cursor-pointer" onclick="claimV2Box(${box.id}, ${box.seconds}, '${stage.stageName}', event)">
+                        <span class="text-[9px] font-extrabold text-brand-gold bg-black/90 px-1.5 py-0.5 rounded border border-purple-500/30 mb-1.5">${badgeText}</span>
+                        <div class="${boxClass}"><i class="${iconClass}"></i></div>
+                        <span class="text-[10px] text-purple-300 font-semibold mt-1">${box.mins}m</span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function claimV2Box(boxId, reqSeconds, stageName, event) {
+            if (v2WatchSeconds < reqSeconds) {
+                showToast(`Watch until ${reqSeconds / 60}m to unlock this Box!`);
+                return;
+            }
+            if (v2ClaimedMapState[boxId]) {
+                showToast(`Already claimed this Box!`);
+                return;
+            }
+
+            const possibleCoins = [300, 500, 800, 1200, 2000, 3500, 5000];
+            const randomReward = possibleCoins[Math.floor(Math.random() * possibleCoins.length)];
+
+            v2ClaimedMapState[boxId] = true;
+            spawnFlyingCoins(event.currentTarget);
+
+            await addCoins(randomReward);
+            saveV2Progress();
+            updateV2BoxesTimelineUI();
+
+            showToast(`🎉 Opened ${stageName} Box! Won +${randomReward} Bonus Coins!`);
+        }
+
+        // FLYING COINS ANIMATION
+        function spawnFlyingCoins(sourceEl) {
+            if (!sourceEl) return;
+            const startRect = sourceEl.getBoundingClientRect();
+            const targetEl = document.getElementById('target-header-coins');
+            const targetRect = targetEl.getBoundingClientRect();
+
+            const startX = startRect.left + startRect.width / 2;
+            const startY = startRect.top + startRect.height / 2;
+
+            const targetX = targetRect.left + targetRect.width / 2 - startX;
+            const targetY = targetRect.top + targetRect.height / 2 - startY;
+
+            for (let i = 0; i < 10; i++) {
+                setTimeout(() => {
+                    const coin = document.createElement('i');
+                    coin.className = "fas fa-coins flying-coin";
+                    coin.style.left = `${startX}px`;
+                    coin.style.top = `${startY}px`;
+
+                    const offsetX = targetX + (Math.random() * 40 - 20);
+                    const offsetY = targetY + (Math.random() * 20 - 10);
+
+                    coin.style.setProperty('--target-x', `${offsetX}px`);
+                    coin.style.setProperty('--target-y', `${offsetY}px`);
+
+                    document.body.appendChild(coin);
+
+                    setTimeout(() => coin.remove(), 900);
+                }, i * 70);
+            }
+        }
+
+
+        // ================= SHORTS FEED & TIMED REWARDS WITH MONETAG ADS =================
+
+        function startShortsTimers() {
+            if (shortsTimerInterval) clearInterval(shortsTimerInterval);
+            shortsTimerInterval = setInterval(() => {
+                if (shorts2MinSecs < 120) shorts2MinSecs++;
+                if (shorts3MinSecs < 180) shorts3MinSecs++;
+                updateShortsRewardButtonsUI();
+            }, 1000);
         }
 
         function renderShortsFeed(force = false) {
@@ -837,10 +1379,19 @@
                         
                         <div class="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/90 pointer-events-none z-15"></div>
 
-                        <div class="absolute right-3 bottom-16 flex flex-col items-center gap-5 z-30" onclick="event.stopPropagation()">
-                            <button onclick="rewardShortView(this)" class="short-reward-btn w-12 h-12 rounded-full glass-panel border border-white/20 bg-black/50 flex flex-col items-center justify-center text-gray-400 cursor-pointer z-30 opacity-80">
-                                <i class="fas fa-lock text-xs"></i>
-                                <span class="text-[8px] font-bold">0/2</span>
+                        <!-- REWARD BUTTONS SIDE PANEL -->
+                        <div class="absolute right-3 bottom-16 flex flex-col items-center gap-4 z-30" onclick="event.stopPropagation()">
+                            
+                            <!-- 2 MINUTE REWARD BUTTON (NO AD) -->
+                            <button onclick="claim2MinReward(this)" class="btn-reward-2min w-12 h-12 rounded-full glass-panel border border-white/20 bg-black/50 flex flex-col items-center justify-center text-gray-400 cursor-pointer z-30 opacity-90 transition">
+                                <i class="fas fa-clock text-xs"></i>
+                                <span class="text-[8px] font-bold timer-txt-2m">0/2m</span>
+                            </button>
+
+                            <!-- 3 MINUTE SUPER REWARD BUTTON (WITH AD) -->
+                            <button onclick="claim3MinReward(this)" class="btn-reward-3min w-12 h-12 rounded-full glass-panel border border-purple-500/30 bg-purple-950/40 flex flex-col items-center justify-center text-purple-300 cursor-pointer z-30 opacity-90 transition">
+                                <i class="fas fa-play-circle text-xs text-purple-400"></i>
+                                <span class="text-[8px] font-bold timer-txt-3m">0/3m</span>
                             </button>
 
                             <button onclick="shareMovie()" class="flex flex-col items-center gap-1 text-white">
@@ -859,47 +1410,128 @@
                 `;
             }).join('');
 
-            updateShortRewardUI();
+            updateShortsRewardButtonsUI();
         }
 
-        function handleShortsScroll() {
-            const feed = document.getElementById('reels-feed');
-            const cardHeight = feed.clientHeight;
-            const currentScroll = feed.scrollTop;
-
-            if (Math.abs(currentScroll - lastScrollTop) >= cardHeight * 0.7) {
-                lastScrollTop = currentScroll;
-                shortsWatchedCount++;
-                updateShortRewardUI();
-            }
-        }
-
-        function updateShortRewardUI() {
-            const rewardBtns = document.querySelectorAll('.short-reward-btn');
-            rewardBtns.forEach(btn => {
-                if (shortsWatchedCount >= 2) {
-                    btn.className = "short-reward-btn w-12 h-12 rounded-full glass-panel border border-brand-gold bg-brand-gold/20 flex flex-col items-center justify-center text-brand-gold animate-bounce shadow-lg shadow-yellow-500/50 cursor-pointer z-30";
-                    btn.innerHTML = `<i class="fas fa-coins text-sm"></i><span class="text-[8px] font-black">+100</span>`;
+        function updateShortsRewardButtonsUI() {
+            // Update 2-Min Buttons (No Ad)
+            const btns2m = document.querySelectorAll('.btn-reward-2min');
+            const left2m = 120 - shorts2MinSecs;
+            btns2m.forEach(btn => {
+                const txt = btn.querySelector('.timer-txt-2m');
+                if (shorts2MinSecs >= 120) {
+                    btn.className = "btn-reward-2min w-12 h-12 rounded-full glass-panel border-2 border-brand-gold bg-brand-gold/20 flex flex-col items-center justify-center text-brand-gold animate-bounce shadow-lg shadow-yellow-500/50 cursor-pointer z-30";
+                    btn.innerHTML = `<i class="fas fa-gift text-sm"></i><span class="text-[8px] font-black">+200</span>`;
                 } else {
-                    btn.className = "short-reward-btn w-12 h-12 rounded-full glass-panel border border-white/20 bg-black/50 flex flex-col items-center justify-center text-gray-400 cursor-pointer z-30 opacity-80";
-                    btn.innerHTML = `<i class="fas fa-lock text-xs"></i><span class="text-[8px] font-bold">${shortsWatchedCount}/2</span>`;
+                    const m = Math.floor(shorts2MinSecs / 60);
+                    const s = shorts2MinSecs % 60;
+                    btn.className = "btn-reward-2min w-12 h-12 rounded-full glass-panel border border-white/20 bg-black/50 flex flex-col items-center justify-center text-gray-300 cursor-pointer z-30 opacity-90";
+                    btn.innerHTML = `<i class="fas fa-clock text-xs text-brand-gold"></i><span class="text-[8px] font-bold timer-txt-2m">${m}:${s < 10 ? '0' : ''}${s}</span>`;
+                }
+            });
+
+            // Update 3-Min Buttons (With Ad)
+            const btns3m = document.querySelectorAll('.btn-reward-3min');
+            btns3m.forEach(btn => {
+                if (shorts3MinSecs >= 180) {
+                    btn.className = "btn-reward-3min w-12 h-12 rounded-full glass-panel border-2 border-purple-400 bg-purple-600/30 flex flex-col items-center justify-center text-purple-200 animate-pulse shadow-lg shadow-purple-500/50 cursor-pointer z-30";
+                    btn.innerHTML = `<i class="fas fa-play text-xs text-purple-300"></i><span class="text-[8px] font-black">+500</span>`;
+                } else {
+                    const m = Math.floor(shorts3MinSecs / 60);
+                    const s = shorts3MinSecs % 60;
+                    btn.className = "btn-reward-3min w-12 h-12 rounded-full glass-panel border border-purple-500/30 bg-purple-950/40 flex flex-col items-center justify-center text-purple-300 cursor-pointer z-30 opacity-90";
+                    btn.innerHTML = `<i class="fas fa-film text-xs text-purple-400"></i><span class="text-[8px] font-bold timer-txt-3m">${m}:${s < 10 ? '0' : ''}${s}</span>`;
                 }
             });
         }
 
-        async function rewardShortView(btn) {
-            if (shortsWatchedCount < 2) {
-                showToast(`🔒 Watch 2 short videos to unlock reward! (${shortsWatchedCount}/2 watched)`);
+        // CLAIM 2-MINUTE REWARD (NO AD REQUIRED)
+        async function claim2MinReward(btn) {
+            if (shorts2MinSecs < 120) {
+                const rem = 120 - shorts2MinSecs;
+                showToast(`⏳ Watch ${rem}s more for 2-Min No-Ad Bonus!`);
                 return;
             }
 
-            shortsWatchedCount = 0;
-            updateShortRewardUI();
-
-            await addCoins(100);
-            showToast('🎉 Unlocked +100 Coins! Watch 2 more shorts for next reward.');
+            shorts2MinSecs = 0; // Reset timer
+            spawnFlyingCoins(btn);
+            await addCoins(200);
+            updateShortsRewardButtonsUI();
+            showToast('🎉 Won +200 Coins! (2-Min Bonus - No Ad)');
         }
 
+        // CLAIM 3-MINUTE REWARD (TRIGGERS MONETAG AD & 27 AD / 1-HR COOLDOWN LOGIC)
+        async function claim3MinReward(btn) {
+            if (shorts3MinSecs < 180) {
+                const rem = 180 - shorts3MinSecs;
+                showToast(`⏳ Watch ${rem}s more for 3-Min Super Bonus!`);
+                return;
+            }
+
+            const now = Date.now();
+
+            // Check if user is in 1-Hour Ad Cooldown Period
+            if (adCooldownUntil && now < adCooldownUntil) {
+                const leftMins = Math.ceil((adCooldownUntil - now) / 60000);
+                showToast(`⚡ Ad Rest active (${leftMins}m remaining). Direct reward granted!`);
+                
+                shorts3MinSecs = 0;
+                spawnFlyingCoins(btn);
+                await addCoins(500);
+                updateShortsRewardButtonsUI();
+                return;
+            }
+
+            // Check if 1-Hour Cooldown expired -> Reset
+            if (adCooldownUntil && now >= adCooldownUntil) {
+                adCooldownUntil = 0;
+                totalAdsWatched = 0;
+                localStorage.removeItem('vitflix_ad_cooldown_' + userId);
+                localStorage.setItem('vitflix_total_ads_' + userId, '0');
+            }
+
+            // TRIGGER MONETAG REWARDED AD
+            showToast('📺 Opening Ad... Watch complete ad to claim +500 coins');
+
+            if (typeof show_11473636 === 'function') {
+                show_11473636().then(async () => {
+                    // AD WATCHED SUCCESSFULLY
+                    totalAdsWatched++;
+                    localStorage.setItem('vitflix_total_ads_' + userId, totalAdsWatched.toString());
+
+                    // Check if 27 Ads limit reached
+                    if (totalAdsWatched >= 27) {
+                        adCooldownUntil = Date.now() + (60 * 60 * 1000); // 1 Hour from now
+                        localStorage.setItem('vitflix_ad_cooldown_' + userId, adCooldownUntil.toString());
+                        showToast('🎉 You watched 27 ads! 1-Hour No-Ad Pause activated!');
+                    } else {
+                        showToast(`✅ Ad Finished! (${totalAdsWatched}/27 watched today)`);
+                    }
+
+                    shorts3MinSecs = 0;
+                    spawnFlyingCoins(btn);
+                    await addCoins(500);
+                    updateShortsRewardButtonsUI();
+
+                }).catch(async (err) => {
+                    console.error("Ad display issue:", err);
+                    // Fallback reward if ad failed to load
+                    shorts3MinSecs = 0;
+                    await addCoins(500);
+                    updateShortsRewardButtonsUI();
+                    showToast('🎉 Won +500 Coins Super Reward!');
+                });
+            } else {
+                // Fallback if Monetag script blocked
+                shorts3MinSecs = 0;
+                await addCoins(500);
+                updateShortsRewardButtonsUI();
+                showToast('🎉 Won +500 Coins!');
+            }
+        }
+
+
+        // WITHDRAWAL CONTROLS
         function selectWithdrawCard(el, rupees, coinsReq) {
             document.querySelectorAll('.withdraw-card').forEach(card => card.classList.remove('withdraw-card-active'));
             el.classList.add('withdraw-card-active');
@@ -951,41 +1583,16 @@
             document.getElementById('upi-input').value = '';
         }
 
-        function getYouTubeId(url) {
-            if (!url) return null;
-            const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|shorts\/|watch\?v=|\&v=)([^#\&\?]*).*/;
-            const match = url.match(regExp);
-            return (match && match[2].length === 11) ? match[2] : null;
-        }
-
-        function getDailymotionId(url) {
-            if (!url) return null;
-            const regExp = /^.+dailymotion.com\/(video|hub)\/([^_]+)[^#]*$/;
-            const match = url.match(regExp);
-            if (match && match[2]) return match[2];
-            const shortMatch = url.match(/^.+dai.ly\/([^_]+)[^#]*$/);
-            return shortMatch ? shortMatch[1] : null;
-        }
-
-        function getPosterUrl(m) {
-            if (m.poster_url && m.poster_url.trim() !== "") return m.poster_url;
-            const ytId = getYouTubeId(m.video_url);
-            if (ytId) return `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
-            const dmId = getDailymotionId(m.video_url);
-            if (dmId) return `https://www.dailymotion.com/thumbnail/video/${dmId}`;
-            return "https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=800";
-        }
-
         async function fetchUserCoins() {
             try {
                 let { data, error } = await _supabase.from('profiles').select('coins').eq('id', userId).single();
                 if (error && error.code === 'PGRST116') {
-                    await _supabase.from('profiles').insert([{ id: userId, coins: 108176 }]);
-                    coins = 108176;
+                    await _supabase.from('profiles').insert([{ id: userId, coins: 100 }]);
+                    coins = 100;
                 } else if (data) {
-                    coins = data.coins || 108176;
+                    coins = data.coins || 100;
                 }
-            } catch (err) { coins = 108176; }
+            } catch (err) { coins = 100; }
             updateUI();
         }
 
@@ -1071,7 +1678,7 @@
             const dmId = getDailymotionId(url);
 
             if (dmId) {
-                mount.innerHTML = `<iframe src="https://www.dailymotion.com/embed/video/${dmId}?autoplay=1&ui-logo=0" allow="autoplay; fullscreen" class="w-full h-full rounded-xl border-0"></iframe>`;
+                mount.innerHTML = `<iframe src="https://www.dailymotion.com/embed/video/${dmId}?autoplay=1&ui-logo=0" allow="autoplay; fullscreen" class="w-full h-full rounded-xl border-0" allowfullscreen></iframe>`;
             } else if (url.includes('drive.google.com')) {
                 let driveUrl = url.replace('/view', '/preview');
                 mount.innerHTML = `<iframe src="${driveUrl}" class="w-full h-full rounded-xl border-0" allow="autoplay" allowfullscreen></iframe>`;
@@ -1086,7 +1693,7 @@
             watchTimerInterval = setInterval(() => {
                 totalWatchedSeconds++;
                 updateWatchTimelineUI();
-                saveWatchProgress(); // Persistent save progress
+                saveWatchProgress();
             }, 1000);
         }
 
@@ -1126,31 +1733,19 @@
 
             m.claimed = true;
             await addCoins(m.reward);
-            saveWatchProgress(); // Save updated claim state
+            saveWatchProgress();
             
             updateWatchTimelineUI();
             showToast(`🎉 Unlocked +${m.reward.toLocaleString()} Coins!`);
         }
 
-        function simulateWatchTime(secs) {
-            totalWatchedSeconds += secs;
-            updateWatchTimelineUI();
-            saveWatchProgress();
-            showToast(`Watch time boosted +${secs/60} mins!`);
-        }
-
-        // TAPPING MOVIE CARD PLAYS VIDEO & SCROLLS TO TOP CONTAINER!
         function playSelectedMovie(index) {
             currentMovie = allMoviesList[index];
             loadTopMovieUI();
             startCurrentVideo();
-            
-            // FIX: Smooth Scroll to top of main content container
+
             const mainScroll = document.getElementById('main-scroll-container');
-            if (mainScroll) {
-                mainScroll.scrollTo({ top: 0, behavior: 'smooth' });
-            }
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+            if (mainScroll) mainScroll.scrollTo({ top: 0, behavior: 'smooth' });
 
             showToast(`🎬 Playing: ${currentMovie.title}`);
         }
@@ -1191,7 +1786,7 @@
 
         window.onload = () => {
             fetchUserCoins();
-            loadSavedWatchProgress(); // Restores time, claimed status & checks 3h reset
+            loadSavedWatchProgress();
             loadMoviesFromDB();
             loadShortsFromDB();
         };
