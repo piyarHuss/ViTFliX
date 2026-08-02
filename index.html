@@ -170,6 +170,45 @@
         </div>
     </div>
 
+    <!-- YOUTUBE-STYLE 7-SECOND PRE-ROLL AD MODAL -->
+    <div id="yt-ad-modal" class="fixed inset-0 bg-black/95 z-[200000] hidden flex flex-col justify-between p-4 md:p-8 backdrop-blur-md">
+        <!-- Top Bar -->
+        <div class="flex items-center justify-between text-white z-20">
+            <div class="flex items-center gap-2">
+                <span class="bg-yellow-500 text-black text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider">Ad</span>
+                <span class="text-xs font-semibold text-gray-300">Sponsored</span>
+            </div>
+            <button onclick="visitAdvertiserLink()" class="bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs font-bold px-4 py-2 rounded-full transition flex items-center gap-2">
+                <span>Visit advertiser</span>
+                <i class="fas fa-external-link-alt text-[10px]"></i>
+            </button>
+        </div>
+
+        <!-- Middle Container: Ad Content / Banner Preview -->
+        <div class="relative flex-1 my-4 bg-gray-900 border border-white/10 rounded-2xl overflow-hidden flex items-center justify-center cursor-pointer shadow-2xl" onclick="visitAdvertiserLink()">
+            <iframe id="yt-ad-iframe" class="w-full h-full border-0 pointer-events-none opacity-80" src=""></iframe>
+            <div class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/60 flex flex-col items-center justify-center text-center p-6 space-y-3">
+                <div class="w-16 h-16 rounded-2xl bg-yellow-500/20 border border-yellow-400/40 text-yellow-400 flex items-center justify-center text-3xl animate-pulse glow-gold">
+                    <i class="fas fa-rectangle-ad"></i>
+                </div>
+                <h3 class="text-lg md:text-xl font-black text-white">Sponsored Direct Offer</h3>
+                <p class="text-xs text-gray-300 max-w-sm">Tap anywhere to visit sponsor deal. Video stream will unlock shortly.</p>
+            </div>
+        </div>
+
+        <!-- Bottom Bar: Skip Counter -->
+        <div class="flex justify-end items-center z-20">
+            <div id="ad-timer-container" class="bg-black/80 border border-white/20 text-white font-bold text-xs px-5 py-2.5 rounded-xl flex items-center gap-2">
+                <i class="fas fa-clock text-yellow-400"></i>
+                <span>Skip ad in <b id="ad-skip-counter" class="text-yellow-400 font-extrabold">7</b>s</span>
+            </div>
+            <button id="ad-skip-btn" onclick="closeAdAndPlayPendingVideo()" class="hidden bg-gradient-to-r from-red-600 to-rose-600 hover:brightness-110 text-white font-extrabold text-xs px-6 py-2.5 rounded-xl shadow-2xl glow-red flex items-center gap-2 transition active:scale-95">
+                <span>Skip Ad</span>
+                <i class="fas fa-step-forward"></i>
+            </button>
+        </div>
+    </div>
+
     <!-- DAILY CHECK-IN MODAL (ONLY ACCESSIBLE FROM DRAWER MENU) -->
     <div id="checkin-modal" class="fixed inset-0 bg-black/85 z-[160] flex items-center justify-center p-4 hidden backdrop-blur-md">
         <div class="bg-gradient-to-b from-[#1a130b] via-[#121217] to-[#08080a] border border-amber-500/40 w-full max-w-md rounded-3xl p-5 space-y-4 shadow-2xl relative overflow-hidden">
@@ -733,6 +772,11 @@
         let totalWatchedSeconds = 0;
         let watchTimerInterval = null;
 
+        // --- DIRECT AD LINK CONFIGURATION (FROM ADMIN) ---
+        let directAdLink = "";
+        let pendingVideoCallback = null;
+        let adCountdownTimer = null;
+
         // --- SHORTS TIMERS & LAZY OBSERVER STATE ---
         let shorts2MinSecs = 0; // 120s timer for NO AD
         let shorts3MinSecs = 0; // 180s timer for WITH AD
@@ -807,6 +851,76 @@
             { id: 4, mins: 60, seconds: 3600, reward: 10000, claimed: false },
             { id: 5, mins: 180, seconds: 10800, reward: 16000, claimed: false }
         ];
+
+        // --- FETCH DIRECT AD LINK SAVED BY ADMIN ---
+        async function fetchDirectAdLink() {
+            try {
+                const { data } = await _supabase.from('settings').select('value').eq('key', 'direct_ad_link').single();
+                if (data && data.value) {
+                    directAdLink = data.value;
+                } else {
+                    directAdLink = localStorage.getItem('vitflix_admin_direct_ad_link') || "";
+                }
+            } catch(e) {
+                directAdLink = localStorage.getItem('vitflix_admin_direct_ad_link') || "";
+            }
+        }
+
+        // --- YOUTUBE-STYLE 7-SECOND PRE-ROLL OVERLAY AD SYSTEM ---
+        function triggerPreRollAd(onAdComplete) {
+            // If no direct ad link configured by admin, bypass ad directly
+            if (!directAdLink || directAdLink.trim() === "") {
+                onAdComplete();
+                return;
+            }
+
+            pendingVideoCallback = onAdComplete;
+
+            const modal = document.getElementById('yt-ad-modal');
+            const iframe = document.getElementById('yt-ad-iframe');
+            const timerContainer = document.getElementById('ad-timer-container');
+            const skipBtn = document.getElementById('ad-skip-btn');
+            const counterEl = document.getElementById('ad-skip-counter');
+
+            iframe.src = directAdLink;
+            modal.classList.remove('hidden');
+
+            timerContainer.classList.remove('hidden');
+            skipBtn.classList.add('hidden');
+            let count = 7;
+            counterEl.textContent = count;
+
+            if (adCountdownTimer) clearInterval(adCountdownTimer);
+
+            adCountdownTimer = setInterval(() => {
+                count--;
+                if (count > 0) {
+                    counterEl.textContent = count;
+                } else {
+                    clearInterval(adCountdownTimer);
+                    timerContainer.classList.add('hidden');
+                    skipBtn.classList.remove('hidden');
+                }
+            }, 1000);
+        }
+
+        function visitAdvertiserLink() {
+            if (directAdLink) {
+                window.open(directAdLink, '_blank');
+            }
+        }
+
+        function closeAdAndPlayPendingVideo() {
+            if (adCountdownTimer) clearInterval(adCountdownTimer);
+            document.getElementById('yt-ad-modal').classList.add('hidden');
+            document.getElementById('yt-ad-iframe').src = "";
+
+            if (pendingVideoCallback) {
+                pendingVideoCallback();
+                pendingVideoCallback = null;
+            }
+        }
+
 
         // --- DAILY CHECK-IN LOGIC ---
         function getTodayDateStr() {
@@ -1123,7 +1237,6 @@
             mobNavShorts.className = "flex flex-col items-center gap-1 text-gray-400 hover:text-white";
             mobNavCash.className = "flex flex-col items-center gap-1 text-gray-400 hover:text-white";
 
-            // Stop Shorts Timer and clear iframe if leaving Shorts
             if (viewName !== 'shorts') {
                 if (shortsTimerInterval) clearInterval(shortsTimerInterval);
                 unloadAllShorts();
@@ -1207,34 +1320,37 @@
 
             const mainScroll = document.getElementById('main-scroll-container');
             if (mainScroll) mainScroll.scrollTo({ top: 0, behavior: 'smooth' });
-            showToast(`🎬 Playing: ${currentV2Video.title}`);
+            showToast(`🎬 Selected: ${currentV2Video.title}`);
         }
 
         function startV2Video() {
-            document.getElementById('v2-video-placeholder').classList.add('hidden');
-            const mount = document.getElementById('v2-player-mount');
-            const url = currentV2Video.video_url || "";
+            // TRIGGER 7-SECOND PRE-ROLL AD BEFORE PLAYING VIDEO STREAM
+            triggerPreRollAd(() => {
+                document.getElementById('v2-video-placeholder').classList.add('hidden');
+                const mount = document.getElementById('v2-player-mount');
+                const url = currentV2Video.video_url || "";
 
-            const ytId = getYouTubeId(url);
-            const dmId = getDailymotionId(url);
+                const ytId = getYouTubeId(url);
+                const dmId = getDailymotionId(url);
 
-            if (dmId) {
-                mount.innerHTML = `<iframe src="https://www.dailymotion.com/embed/video/${dmId}?autoplay=1&ui-logo=0" allow="autoplay; fullscreen" class="w-full h-full rounded-xl border-0" allowfullscreen></iframe>`;
-            } else if (ytId) {
-                mount.innerHTML = `<iframe src="https://www.youtube-nocookie.com/embed/${ytId}?autoplay=1&rel=0" allow="autoplay; encrypted-media" class="w-full h-full rounded-xl border-0" allowfullscreen></iframe>`;
-            } else if (url.includes('drive.google.com')) {
-                let driveUrl = url.replace('/view', '/preview');
-                mount.innerHTML = `<iframe src="${driveUrl}" class="w-full h-full rounded-xl border-0" allow="autoplay" allowfullscreen></iframe>`;
-            } else {
-                mount.innerHTML = `<video controls autoplay playsinline class="w-full h-full rounded-xl object-cover"><source src="${url}" type="video/mp4"></video>`;
-            }
+                if (dmId) {
+                    mount.innerHTML = `<iframe src="https://www.dailymotion.com/embed/video/${dmId}?autoplay=1&ui-logo=0" allow="autoplay; fullscreen" class="w-full h-full rounded-xl border-0" allowfullscreen></iframe>`;
+                } else if (ytId) {
+                    mount.innerHTML = `<iframe src="https://www.youtube-nocookie.com/embed/${ytId}?autoplay=1&rel=0" allow="autoplay; encrypted-media" class="w-full h-full rounded-xl border-0" allowfullscreen></iframe>`;
+                } else if (url.includes('drive.google.com')) {
+                    let driveUrl = url.replace('/view', '/preview');
+                    mount.innerHTML = `<iframe src="${driveUrl}" class="w-full h-full rounded-xl border-0" allow="autoplay" allowfullscreen></iframe>`;
+                } else {
+                    mount.innerHTML = `<video controls autoplay playsinline class="w-full h-full rounded-xl object-cover"><source src="${url}" type="video/mp4"></video>`;
+                }
 
-            if (v2TimerInterval) clearInterval(v2TimerInterval);
-            v2TimerInterval = setInterval(() => {
-                v2WatchSeconds++;
-                updateV2BoxesTimelineUI();
-                saveV2Progress();
-            }, 1000);
+                if (v2TimerInterval) clearInterval(v2TimerInterval);
+                v2TimerInterval = setInterval(() => {
+                    v2WatchSeconds++;
+                    updateV2BoxesTimelineUI();
+                    saveV2Progress();
+                }, 1000);
+            });
         }
 
         function updateV2BoxesTimelineUI() {
@@ -1339,7 +1455,7 @@
         }
 
 
-        // ================= SHORTS FEED & SINGLE ACTIVE VIDEO LAZY LOADING =================
+        // ================= SHORTS FEED & LAZY LOADING =================
 
         function startShortsTimers() {
             if (shortsTimerInterval) clearInterval(shortsTimerInterval);
@@ -1356,28 +1472,23 @@
 
             const listToRender = (allShortsList.length > 0) ? allShortsList : defaultShorts;
 
-            // Render skeleton containers without loading all video players at once
             feed.innerHTML = listToRender.map((short, index) => {
                 return `
                     <div class="reel-card relative w-full h-[calc(100vh-160px)] md:h-[750px] bg-black rounded-3xl overflow-hidden border border-brand-border shadow-2xl flex flex-col justify-end" data-index="${index}">
                         
-                        <!-- DYNAMIC SINGLE PLAYER MOUNT CONTAINER -->
                         <div id="short-media-${index}" class="absolute inset-0 bg-black">
                             <img src="${getPosterUrl(short)}" class="w-full h-full object-cover opacity-20" alt="thumbnail">
                         </div>
                         
                         <div class="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/90 pointer-events-none z-15"></div>
 
-                        <!-- REWARD BUTTONS SIDE PANEL -->
                         <div class="absolute right-3 bottom-16 flex flex-col items-center gap-4 z-30" onclick="event.stopPropagation()">
                             
-                            <!-- 2 MINUTE REWARD BUTTON (NO AD - 100 COINS) -->
                             <button onclick="claim2MinReward(this)" class="btn-reward-2min w-12 h-12 rounded-full glass-panel border border-white/20 bg-black/50 flex flex-col items-center justify-center text-gray-400 cursor-pointer z-30 opacity-90 transition">
                                 <i class="fas fa-clock text-xs"></i>
                                 <span class="text-[8px] font-bold timer-txt-2m">0/2m</span>
                             </button>
 
-                            <!-- 3 MINUTE SUPER REWARD BUTTON (WITH AD - 500 COINS) -->
                             <button onclick="claim3MinReward(this)" class="btn-reward-3min w-12 h-12 rounded-full glass-panel border border-purple-500/30 bg-purple-950/40 flex flex-col items-center justify-center text-purple-300 cursor-pointer z-30 opacity-90 transition">
                                 <i class="fas fa-play-circle text-xs text-purple-400"></i>
                                 <span class="text-[8px] font-bold timer-txt-3m">0/3m</span>
@@ -1403,7 +1514,6 @@
             setupShortsLazyObserver();
         }
 
-        // INTERSECTION OBSERVER: ONLY LOAD ACTIVE VISIBLE SHORT VIDEO
         function setupShortsLazyObserver() {
             if (shortsObserver) shortsObserver.disconnect();
 
@@ -1431,7 +1541,6 @@
         function loadActiveShortVideoOnly(index) {
             const listToRender = (allShortsList.length > 0) ? allShortsList : defaultShorts;
 
-            // Unload all inactive video players
             listToRender.forEach((_, i) => {
                 if (i !== index) {
                     const mount = document.getElementById(`short-media-${i}`);
@@ -1441,7 +1550,6 @@
                 }
             });
 
-            // Load player inside active card only
             const activeMount = document.getElementById(`short-media-${index}`);
             if (!activeMount) return;
 
@@ -1476,7 +1584,6 @@
         }
 
         function updateShortsRewardButtonsUI() {
-            // Update 2-Min Buttons (No Ad - 100 Coins)
             const btns2m = document.querySelectorAll('.btn-reward-2min');
             btns2m.forEach(btn => {
                 if (shorts2MinSecs >= 120) {
@@ -1490,7 +1597,6 @@
                 }
             });
 
-            // Update 3-Min Buttons (With Ad - 500 Coins)
             const btns3m = document.querySelectorAll('.btn-reward-3min');
             btns3m.forEach(btn => {
                 if (shorts3MinSecs >= 180) {
@@ -1505,7 +1611,6 @@
             });
         }
 
-        // CLAIM 2-MINUTE REWARD (NO AD - 100 COINS)
         async function claim2MinReward(btn) {
             if (shorts2MinSecs < 120) {
                 const rem = 120 - shorts2MinSecs;
@@ -1513,14 +1618,13 @@
                 return;
             }
 
-            shorts2MinSecs = 0; // Reset timer
+            shorts2MinSecs = 0;
             spawnFlyingCoins(btn);
-            await addCoins(100); // 100 COINS REWARD
+            await addCoins(100);
             updateShortsRewardButtonsUI();
             showToast('🎉 Won +100 Coins! (2-Min Bonus - No Ad)');
         }
 
-        // CLAIM 3-MINUTE REWARD (MONETAG AD & 27 AD / 1-HR COOLDOWN)
         async function claim3MinReward(btn) {
             if (shorts3MinSecs < 180) {
                 const rem = 180 - shorts3MinSecs;
@@ -1723,31 +1827,34 @@
         }
 
         function startCurrentVideo() {
-            document.getElementById('video-placeholder').classList.add('hidden');
-            const mount = document.getElementById('player-mount');
-            const url = currentMovie.video_url || "";
+            // TRIGGER 7-SECOND PRE-ROLL AD BEFORE PLAYING MOVIE STREAM
+            triggerPreRollAd(() => {
+                document.getElementById('video-placeholder').classList.add('hidden');
+                const mount = document.getElementById('player-mount');
+                const url = currentMovie.video_url || "";
 
-            const ytId = getYouTubeId(url);
-            const dmId = getDailymotionId(url);
+                const ytId = getYouTubeId(url);
+                const dmId = getDailymotionId(url);
 
-            if (dmId) {
-                mount.innerHTML = `<iframe src="https://www.dailymotion.com/embed/video/${dmId}?autoplay=1&ui-logo=0" allow="autoplay; fullscreen" class="w-full h-full rounded-xl border-0" allowfullscreen></iframe>`;
-            } else if (url.includes('drive.google.com')) {
-                let driveUrl = url.replace('/view', '/preview');
-                mount.innerHTML = `<iframe src="${driveUrl}" class="w-full h-full rounded-xl border-0" allow="autoplay" allowfullscreen></iframe>`;
-            } else if (ytId) {
-                const currentOrigin = (window.location.origin && window.location.origin !== "null") ? window.location.origin : "https://www.youtube.com";
-                mount.innerHTML = `<iframe src="https://www.youtube-nocookie.com/embed/${ytId}?autoplay=1&rel=0&origin=${encodeURIComponent(currentOrigin)}" allow="autoplay; encrypted-media" allowfullscreen class="w-full h-full rounded-xl border-0"></iframe>`;
-            } else {
-                mount.innerHTML = `<video controls autoplay playsinline class="w-full h-full rounded-xl object-cover"><source src="${url}" type="video/mp4"></video>`;
-            }
+                if (dmId) {
+                    mount.innerHTML = `<iframe src="https://www.dailymotion.com/embed/video/${dmId}?autoplay=1&ui-logo=0" allow="autoplay; fullscreen" class="w-full h-full rounded-xl border-0" allowfullscreen></iframe>`;
+                } else if (url.includes('drive.google.com')) {
+                    let driveUrl = url.replace('/view', '/preview');
+                    mount.innerHTML = `<iframe src="${driveUrl}" class="w-full h-full rounded-xl border-0" allow="autoplay" allowfullscreen></iframe>`;
+                } else if (ytId) {
+                    const currentOrigin = (window.location.origin && window.location.origin !== "null") ? window.location.origin : "https://www.youtube.com";
+                    mount.innerHTML = `<iframe src="https://www.youtube-nocookie.com/embed/${ytId}?autoplay=1&rel=0&origin=${encodeURIComponent(currentOrigin)}" allow="autoplay; encrypted-media" allowfullscreen class="w-full h-full rounded-xl border-0"></iframe>`;
+                } else {
+                    mount.innerHTML = `<video controls autoplay playsinline class="w-full h-full rounded-xl object-cover"><source src="${url}" type="video/mp4"></video>`;
+                }
 
-            if (watchTimerInterval) clearInterval(watchTimerInterval);
-            watchTimerInterval = setInterval(() => {
-                totalWatchedSeconds++;
-                updateWatchTimelineUI();
-                saveWatchProgress();
-            }, 1000);
+                if (watchTimerInterval) clearInterval(watchTimerInterval);
+                watchTimerInterval = setInterval(() => {
+                    totalWatchedSeconds++;
+                    updateWatchTimelineUI();
+                    saveWatchProgress();
+                }, 1000);
+            });
         }
 
         function updateWatchTimelineUI() {
@@ -1800,7 +1907,7 @@
             const mainScroll = document.getElementById('main-scroll-container');
             if (mainScroll) mainScroll.scrollTo({ top: 0, behavior: 'smooth' });
 
-            showToast(`🎬 Playing: ${currentMovie.title}`);
+            showToast(`🎬 Selected: ${currentMovie.title}`);
         }
 
         function renderMoviesGrid() {
@@ -1839,6 +1946,7 @@
 
         window.onload = () => {
             fetchUserCoins();
+            fetchDirectAdLink();
             loadSavedWatchProgress();
             loadMoviesFromDB();
             loadShortsFromDB();
