@@ -412,7 +412,7 @@
                                 </div>
                             </div>
 
-                            <!-- IN-FRAME SKIP CONTROLS OVERLAY (FLOATS ON TOP-RIGHT / BOTTOM-RIGHT OF VIDEO BOX) -->
+                            <!-- IN-FRAME SKIP CONTROLS OVERLAY FOR MOVIES PAGE -->
                             <div id="inframe-ad-controls-movies" class="absolute bottom-3 right-3 z-40 hidden flex items-center gap-2">
                                 <div id="inframe-timer-badge-movies" class="bg-black/90 text-white text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5 border border-white/20 shadow-xl backdrop-blur-md">
                                     <i class="fas fa-clock text-amber-400"></i>
@@ -424,7 +424,6 @@
                                 </button>
                             </div>
 
-                            <!-- Single Mount Point for Ad Iframe -> Switches to Movie Player -->
                             <div id="player-mount" class="w-full h-full"></div>
                         </div>
 
@@ -826,6 +825,24 @@
             { id: 4, mins: 60, seconds: 3600, reward: 10000, claimed: false },
             { id: 5, mins: 180, seconds: 10800, reward: 16000, claimed: false }
         ];
+
+        // --- MONETAG IN-APP INTERSTITIAL AD TRIGGER ON REWARD CLAIM ---
+        function triggerInAppInterstitialAd() {
+            if (typeof show_11473636 === 'function') {
+                try {
+                    show_11473636({
+                        type: 'inApp',
+                        inAppSettings: {
+                            frequency: 2,
+                            capping: 0.1,
+                            interval: 30,
+                            timeout: 5,
+                            everyPage: false
+                        }
+                    });
+                } catch(e) { console.log("InApp Ad exception:", e); }
+            }
+        }
 
         // --- FETCH DIRECT AD LINK SAVED BY ADMIN ---
         async function fetchDirectAdLink() {
@@ -1453,6 +1470,9 @@
             v2ClaimedMapState[boxId] = true;
             spawnFlyingCoins(event.currentTarget);
 
+            // MONETAG IN-APP INTERSTITIAL AD TRIGGER ON CLAIM
+            triggerInAppInterstitialAd();
+
             await addCoins(randomReward);
             saveV2Progress();
             updateV2BoxesTimelineUI();
@@ -1494,7 +1514,7 @@
         }
 
 
-        // ================= SHORTS FEED & LAZY LOADING =================
+        // ================= SHORTS FEED & STRICT SINGLE VIDEO LAZY LOADING =================
 
         function startShortsTimers() {
             if (shortsTimerInterval) clearInterval(shortsTimerInterval);
@@ -1577,18 +1597,25 @@
             document.querySelectorAll('.reel-card').forEach(card => shortsObserver.observe(card));
         }
 
+        // STRICT LAZY LOAD & UNLOAD (PREVENTS AUDIO OVERLAP ON SCROLL)
         function loadActiveShortVideoOnly(index) {
             const listToRender = (allShortsList.length > 0) ? allShortsList : defaultShorts;
 
+            // 1. UNLOAD AND PAUSE ALL INACTIVE SHORTS COMPLETELY
             listToRender.forEach((_, i) => {
                 if (i !== index) {
                     const mount = document.getElementById(`short-media-${i}`);
-                    if (mount && mount.childElementCount > 1) {
+                    if (mount) {
+                        const vids = mount.querySelectorAll('video');
+                        vids.forEach(v => {
+                            try { v.pause(); v.currentTime = 0; v.src = ""; v.load(); } catch(e){}
+                        });
                         mount.innerHTML = `<img src="${getPosterUrl(listToRender[i])}" class="w-full h-full object-cover opacity-20" alt="thumbnail">`;
                     }
                 }
             });
 
+            // 2. MOUNT ACTIVE SHORT ONLY
             const activeMount = document.getElementById(`short-media-${index}`);
             if (!activeMount) return;
 
@@ -1617,7 +1644,11 @@
             const listToRender = (allShortsList.length > 0) ? allShortsList : defaultShorts;
             listToRender.forEach((_, i) => {
                 const mount = document.getElementById(`short-media-${i}`);
-                if (mount) mount.innerHTML = '';
+                if (mount) {
+                    const vids = mount.querySelectorAll('video');
+                    vids.forEach(v => { try { v.pause(); v.src = ""; } catch(e){} });
+                    mount.innerHTML = '';
+                }
             });
             activeShortIndex = -1;
         }
@@ -1900,6 +1931,10 @@
             }
 
             m.claimed = true;
+
+            // MONETAG IN-APP INTERSTITIAL AD TRIGGER ON CLAIM
+            triggerInAppInterstitialAd();
+
             await addCoins(m.reward);
             saveWatchProgress();
             
