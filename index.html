@@ -170,46 +170,7 @@
         </div>
     </div>
 
-    <!-- YOUTUBE-STYLE 7-SECOND PRE-ROLL AD MODAL -->
-    <div id="yt-ad-modal" class="fixed inset-0 bg-black/95 z-[200000] hidden flex flex-col justify-between p-4 md:p-8 backdrop-blur-md">
-        <!-- Top Bar -->
-        <div class="flex items-center justify-between text-white z-20">
-            <div class="flex items-center gap-2">
-                <span class="bg-yellow-500 text-black text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider">Ad</span>
-                <span class="text-xs font-semibold text-gray-300">Sponsored</span>
-            </div>
-            <button onclick="visitAdvertiserLink()" class="bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs font-bold px-4 py-2 rounded-full transition flex items-center gap-2">
-                <span>Visit advertiser</span>
-                <i class="fas fa-external-link-alt text-[10px]"></i>
-            </button>
-        </div>
-
-        <!-- Middle Container: Ad Content / Banner Preview -->
-        <div class="relative flex-1 my-4 bg-gray-900 border border-white/10 rounded-2xl overflow-hidden flex items-center justify-center cursor-pointer shadow-2xl" onclick="visitAdvertiserLink()">
-            <iframe id="yt-ad-iframe" class="w-full h-full border-0 pointer-events-none opacity-80" src=""></iframe>
-            <div class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/60 flex flex-col items-center justify-center text-center p-6 space-y-3">
-                <div class="w-16 h-16 rounded-2xl bg-yellow-500/20 border border-yellow-400/40 text-yellow-400 flex items-center justify-center text-3xl animate-pulse glow-gold">
-                    <i class="fas fa-rectangle-ad"></i>
-                </div>
-                <h3 class="text-lg md:text-xl font-black text-white">Sponsored Direct Offer</h3>
-                <p class="text-xs text-gray-300 max-w-sm">Tap anywhere to visit sponsor deal. Video stream will unlock shortly.</p>
-            </div>
-        </div>
-
-        <!-- Bottom Bar: Skip Counter -->
-        <div class="flex justify-end items-center z-20">
-            <div id="ad-timer-container" class="bg-black/80 border border-white/20 text-white font-bold text-xs px-5 py-2.5 rounded-xl flex items-center gap-2">
-                <i class="fas fa-clock text-yellow-400"></i>
-                <span>Skip ad in <b id="ad-skip-counter" class="text-yellow-400 font-extrabold">7</b>s</span>
-            </div>
-            <button id="ad-skip-btn" onclick="closeAdAndPlayPendingVideo()" class="hidden bg-gradient-to-r from-red-600 to-rose-600 hover:brightness-110 text-white font-extrabold text-xs px-6 py-2.5 rounded-xl shadow-2xl glow-red flex items-center gap-2 transition active:scale-95">
-                <span>Skip Ad</span>
-                <i class="fas fa-step-forward"></i>
-            </button>
-        </div>
-    </div>
-
-    <!-- DAILY CHECK-IN MODAL (ONLY ACCESSIBLE FROM DRAWER MENU) -->
+    <!-- DAILY CHECK-IN MODAL -->
     <div id="checkin-modal" class="fixed inset-0 bg-black/85 z-[160] flex items-center justify-center p-4 hidden backdrop-blur-md">
         <div class="bg-gradient-to-b from-[#1a130b] via-[#121217] to-[#08080a] border border-amber-500/40 w-full max-w-md rounded-3xl p-5 space-y-4 shadow-2xl relative overflow-hidden">
             
@@ -227,14 +188,10 @@
             </div>
 
             <!-- Days 1 to 6 Grid -->
-            <div class="grid grid-cols-3 sm:grid-cols-6 gap-2 pt-2" id="checkin-grid-6">
-                <!-- Injected via JS -->
-            </div>
+            <div class="grid grid-cols-3 sm:grid-cols-6 gap-2 pt-2" id="checkin-grid-6"></div>
 
             <!-- Long Term Chests (Day 7, 14, 20, 30) -->
-            <div class="grid grid-cols-4 gap-2 pt-1" id="checkin-grid-long">
-                <!-- Injected via JS -->
-            </div>
+            <div class="grid grid-cols-4 gap-2 pt-1" id="checkin-grid-long"></div>
 
             <!-- Main Check-in Action Button -->
             <div class="pt-2">
@@ -274,7 +231,6 @@
                         <span>Shorts Videos</span>
                     </button>
                     
-                    <!-- DAILY CHECK-IN EXCLUSIVE IN MENU -->
                     <button onclick="openCheckInModal(); closeDrawerMenu();" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition text-brand-gold bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20">
                         <i class="fas fa-calendar-check text-brand-gold text-base w-5"></i>
                         <span>Daily Check-in Bonus</span>
@@ -308,9 +264,7 @@
                 <button onclick="closeRecordsModal()" class="text-gray-400 hover:text-white p-1"><i class="fas fa-times"></i></button>
             </div>
 
-            <div id="records-list" class="space-y-3 overflow-y-auto no-scrollbar flex-1 pr-1">
-                <!-- Records loaded via JS -->
-            </div>
+            <div id="records-list" class="space-y-3 overflow-y-auto no-scrollbar flex-1 pr-1"></div>
         </div>
     </div>
 
@@ -436,13 +390,15 @@
                             </div>
                         </div>
 
-                        <!-- Video Player Box -->
+                        <!-- VIDEO PLAYER BOX (AD PLAYS DIRECTLY INSIDE THIS FRAME) -->
                         <div class="video-container glow-red relative border border-brand-border bg-black rounded-2xl overflow-hidden shadow-2xl" id="video-wrapper">
                             
+                            <!-- Fullscreen Button -->
                             <button onclick="makeVideoFullScreen()" title="Full Screen" class="absolute top-3 right-3 z-40 w-9 h-9 rounded-full bg-black/70 hover:bg-brand-red border border-white/20 text-brand-gold flex items-center justify-center text-sm backdrop-blur-md shadow-2xl transition active:scale-95">
                                 <i id="fs-btn-icon" class="fas fa-expand"></i>
                             </button>
 
+                            <!-- Placeholder Image before Play -->
                             <div id="video-placeholder" class="absolute inset-0 flex flex-col items-center justify-center bg-black/80 rounded-xl z-10 cursor-pointer" onclick="startCurrentVideo()">
                                 <img id="top-poster-img" src="" alt="Poster" class="absolute inset-0 w-full h-full object-cover opacity-30">
                                 <div class="relative z-10 flex flex-col items-center p-4 text-center">
@@ -455,6 +411,20 @@
                                     </p>
                                 </div>
                             </div>
+
+                            <!-- IN-FRAME SKIP CONTROLS OVERLAY (FLOATS ON TOP-RIGHT / BOTTOM-RIGHT OF VIDEO BOX) -->
+                            <div id="inframe-ad-controls-movies" class="absolute bottom-3 right-3 z-40 hidden flex items-center gap-2">
+                                <div id="inframe-timer-badge-movies" class="bg-black/90 text-white text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5 border border-white/20 shadow-xl backdrop-blur-md">
+                                    <i class="fas fa-clock text-amber-400"></i>
+                                    <span>Skip in <b id="inframe-count-movies" class="text-amber-400 font-extrabold">7</b>s</span>
+                                </div>
+                                <button id="inframe-skip-btn-movies" onclick="skipInFrameMovieAd()" class="hidden bg-gradient-to-r from-red-600 to-rose-600 hover:brightness-110 text-white text-xs font-extrabold px-4 py-2 rounded-lg shadow-2xl glow-red flex items-center gap-2 transition active:scale-95">
+                                    <span>Skip</span>
+                                    <i class="fas fa-step-forward text-amber-400"></i>
+                                </button>
+                            </div>
+
+                            <!-- Single Mount Point for Ad Iframe -> Switches to Movie Player -->
                             <div id="player-mount" class="w-full h-full"></div>
                         </div>
 
@@ -578,8 +548,9 @@
                         <p id="v2-video-desc" class="text-xs text-gray-400 mt-1">Watch videos & unlock 5-minute evolving treasure boxes for high coin rewards!</p>
                     </div>
 
-                    <!-- Video Player Box V2 -->
+                    <!-- Video Player Box V2 (AD PLAYS DIRECTLY INSIDE THIS FRAME) -->
                     <div class="video-container glow-purple relative border border-purple-500/30 bg-black rounded-2xl overflow-hidden shadow-2xl">
+                        
                         <div id="v2-video-placeholder" class="absolute inset-0 flex flex-col items-center justify-center bg-black/80 rounded-xl z-10 cursor-pointer" onclick="startV2Video()">
                             <img id="v2-poster-img" src="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800" alt="Poster" class="absolute inset-0 w-full h-full object-cover opacity-30">
                             <div class="relative z-10 flex flex-col items-center p-4 text-center">
@@ -592,6 +563,19 @@
                                 </p>
                             </div>
                         </div>
+
+                        <!-- IN-FRAME SKIP CONTROLS OVERLAY FOR VIDEOS PAGE -->
+                        <div id="inframe-ad-controls-v2" class="absolute bottom-3 right-3 z-40 hidden flex items-center gap-2">
+                            <div id="inframe-timer-badge-v2" class="bg-black/90 text-white text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5 border border-white/20 shadow-xl backdrop-blur-md">
+                                <i class="fas fa-clock text-amber-400"></i>
+                                <span>Skip in <b id="inframe-count-v2" class="text-amber-400 font-extrabold">7</b>s</span>
+                            </div>
+                            <button id="inframe-skip-btn-v2" onclick="skipInFrameV2Ad()" class="hidden bg-gradient-to-r from-purple-600 to-indigo-600 hover:brightness-110 text-white text-xs font-extrabold px-4 py-2 rounded-lg shadow-2xl glow-purple flex items-center gap-2 transition active:scale-95">
+                                <span>Skip</span>
+                                <i class="fas fa-step-forward text-amber-400"></i>
+                            </button>
+                        </div>
+
                         <div id="v2-player-mount" class="w-full h-full"></div>
                     </div>
 
@@ -611,9 +595,7 @@
                                 <div id="v2-timeline-line" class="h-full bg-gradient-to-r from-purple-500 via-pink-500 to-brand-gold transition-all duration-300" style="width: 0%;"></div>
                             </div>
 
-                            <div class="relative flex justify-between items-center z-10 text-center" id="v2-boxes-container">
-                                <!-- Dynamically Rendered Boxes -->
-                            </div>
+                            <div class="relative flex justify-between items-center z-10 text-center" id="v2-boxes-container"></div>
                         </div>
 
                         <div class="flex items-center justify-between text-[11px] text-gray-400 pt-1 border-t border-white/5">
@@ -635,9 +617,7 @@
             <!-- ================= VIEW 2: SHORTS SECTION ================= -->
             <main id="view-shorts" class="hidden p-2 md:p-6 flex justify-center items-center">
                 <div class="w-full max-w-md relative">
-                    <div class="reels-container space-y-4 no-scrollbar rounded-3xl" id="reels-feed">
-                        <!-- Dynamic Shorts Injected Here with Lazy Loading -->
-                    </div>
+                    <div class="reels-container space-y-4 no-scrollbar rounded-3xl" id="reels-feed"></div>
                 </div>
             </main>
 
@@ -649,7 +629,6 @@
                         <button onclick="switchView('movies')" class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white"><i class="fas fa-arrow-left"></i></button>
                         <h1 class="text-xl font-extrabold text-white">My Wallet</h1>
                     </div>
-                    <!-- ORIGINAL SIMPLE TEXT BUTTON FOR RECORD -->
                     <button onclick="openRecordsModal()" class="text-xs text-gray-300 font-semibold hover:underline">Record &gt;</button>
                 </div>
 
@@ -758,7 +737,9 @@
         const SUPABASE_KEY = "sb_publishable_BgEm2LyCKPvGdB8gLjKeUw_GiG7kU61";
         const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        // NEW USER STARTS WITH ONLY 100 FREE COINS
+        // DEFAULT HARDCODED CPM DIRECT LINK (LOADS DIRECTLY INSIDE VIDEO FRAME)
+        let directAdLink = "https://www.effectivecpmnetwork.com/u745rvnfy?key=f5ec06ad491fd1ceab3af658fd2d3010";
+
         let coins = 100;
         let totalWithdrawn = 0;
         let userId = localStorage.getItem('vitflix_user_id') || "user_" + Math.floor(1000 + Math.random() * 9000);
@@ -772,23 +753,19 @@
         let totalWatchedSeconds = 0;
         let watchTimerInterval = null;
 
-        // --- DIRECT AD LINK CONFIGURATION (FROM ADMIN) ---
-        let directAdLink = "";
-        let pendingVideoCallback = null;
-        let adCountdownTimer = null;
+        let movieAdTimer = null;
+        let videoAdTimer = null;
 
-        // --- SHORTS TIMERS & LAZY OBSERVER STATE ---
-        let shorts2MinSecs = 0; // 120s timer for NO AD
-        let shorts3MinSecs = 0; // 180s timer for WITH AD
+        // SHORTS TIMERS
+        let shorts2MinSecs = 0; 
+        let shorts3MinSecs = 0; 
         let shortsTimerInterval = null;
         let shortsObserver = null;
         let activeShortIndex = -1;
 
-        // Monetag Ad Limit Tracking State
         let totalAdsWatched = parseInt(localStorage.getItem('vitflix_total_ads_' + userId) || '0');
         let adCooldownUntil = parseInt(localStorage.getItem('vitflix_ad_cooldown_' + userId) || '0');
 
-        // MULTI-STAGE EVOLVING BOX THEMES
         const boxThemes = [
             {
                 stageName: "Level 1: Piggy Bank Stage 🐷",
@@ -833,14 +810,12 @@
         let v2WatchSeconds = 0;
         let v2TimerInterval = null;
 
-        // DAILY CHECK-IN SYSTEM STATE
         let checkInStreak = 1;
         let lastCheckInDate = localStorage.getItem('vitflix_last_checkin_date_' + userId) || null;
         let claimedCheckInDays = JSON.parse(localStorage.getItem('vitflix_claimed_checkin_days_' + userId)) || [];
 
         let selectedRupees = 10;
         let selectedCoinsReq = 100000;
-
         let isFullScreenActive = false;
 
         const milestones = [
@@ -856,69 +831,163 @@
         async function fetchDirectAdLink() {
             try {
                 const { data } = await _supabase.from('settings').select('value').eq('key', 'direct_ad_link').single();
-                if (data && data.value) {
-                    directAdLink = data.value;
+                if (data && data.value && data.value.trim() !== "") {
+                    directAdLink = data.value.trim();
                 } else {
-                    directAdLink = localStorage.getItem('vitflix_admin_direct_ad_link') || "";
+                    const savedLocal = localStorage.getItem('vitflix_admin_direct_ad_link');
+                    if (savedLocal && savedLocal.trim() !== "") directAdLink = savedLocal.trim();
                 }
             } catch(e) {
-                directAdLink = localStorage.getItem('vitflix_admin_direct_ad_link') || "";
+                const savedLocal = localStorage.getItem('vitflix_admin_direct_ad_link');
+                if (savedLocal && savedLocal.trim() !== "") directAdLink = savedLocal.trim();
             }
         }
 
-        // --- YOUTUBE-STYLE 7-SECOND PRE-ROLL OVERLAY AD SYSTEM ---
-        function triggerPreRollAd(onAdComplete) {
-            // If no direct ad link configured by admin, bypass ad directly
-            if (!directAdLink || directAdLink.trim() === "") {
-                onAdComplete();
-                return;
+
+        // --- MOVIES: IN-FRAME PRE-ROLL AD EXECUTION ---
+        function startCurrentVideo() {
+            document.getElementById('video-placeholder').classList.add('hidden');
+            const mount = document.getElementById('player-mount');
+
+            if (directAdLink && directAdLink.trim() !== "") {
+                // 1. Load Ad Iframe DIRECTLY inside movie video frame container
+                mount.innerHTML = `<iframe src="${directAdLink}" class="w-full h-full rounded-xl border-0 bg-black" allow="autoplay; encrypted-media"></iframe>`;
+                
+                // 2. Show 7-Second Skip overlay on top-right/bottom-right of video frame
+                const controls = document.getElementById('inframe-ad-controls-movies');
+                const badge = document.getElementById('inframe-timer-badge-movies');
+                const btn = document.getElementById('inframe-skip-btn-movies');
+                const countEl = document.getElementById('inframe-count-movies');
+
+                controls.classList.remove('hidden');
+                badge.classList.remove('hidden');
+                btn.classList.add('hidden');
+
+                let count = 7;
+                countEl.textContent = count;
+
+                if (movieAdTimer) clearInterval(movieAdTimer);
+
+                movieAdTimer = setInterval(() => {
+                    count--;
+                    if (count > 0) {
+                        countEl.textContent = count;
+                    } else {
+                        clearInterval(movieAdTimer);
+                        badge.classList.add('hidden');
+                        btn.classList.remove('hidden');
+                    }
+                }, 1000);
+
+            } else {
+                mountActualMovieStream();
+            }
+        }
+
+        function skipInFrameMovieAd() {
+            if (movieAdTimer) clearInterval(movieAdTimer);
+            document.getElementById('inframe-ad-controls-movies').classList.add('hidden');
+            mountActualMovieStream();
+        }
+
+        function mountActualMovieStream() {
+            const mount = document.getElementById('player-mount');
+            const url = currentMovie.video_url || "";
+
+            const ytId = getYouTubeId(url);
+            const dmId = getDailymotionId(url);
+
+            if (dmId) {
+                mount.innerHTML = `<iframe src="https://www.dailymotion.com/embed/video/${dmId}?autoplay=1&ui-logo=0" allow="autoplay; fullscreen" class="w-full h-full rounded-xl border-0" allowfullscreen></iframe>`;
+            } else if (url.includes('drive.google.com')) {
+                let driveUrl = url.replace('/view', '/preview');
+                mount.innerHTML = `<iframe src="${driveUrl}" class="w-full h-full rounded-xl border-0" allow="autoplay" allowfullscreen></iframe>`;
+            } else if (ytId) {
+                const currentOrigin = (window.location.origin && window.location.origin !== "null") ? window.location.origin : "https://www.youtube.com";
+                mount.innerHTML = `<iframe src="https://www.youtube-nocookie.com/embed/${ytId}?autoplay=1&rel=0&origin=${encodeURIComponent(currentOrigin)}" allow="autoplay; encrypted-media" allowfullscreen class="w-full h-full rounded-xl border-0"></iframe>`;
+            } else {
+                mount.innerHTML = `<video controls autoplay playsinline class="w-full h-full rounded-xl object-cover"><source src="${url}" type="video/mp4"></video>`;
             }
 
-            pendingVideoCallback = onAdComplete;
-
-            const modal = document.getElementById('yt-ad-modal');
-            const iframe = document.getElementById('yt-ad-iframe');
-            const timerContainer = document.getElementById('ad-timer-container');
-            const skipBtn = document.getElementById('ad-skip-btn');
-            const counterEl = document.getElementById('ad-skip-counter');
-
-            iframe.src = directAdLink;
-            modal.classList.remove('hidden');
-
-            timerContainer.classList.remove('hidden');
-            skipBtn.classList.add('hidden');
-            let count = 7;
-            counterEl.textContent = count;
-
-            if (adCountdownTimer) clearInterval(adCountdownTimer);
-
-            adCountdownTimer = setInterval(() => {
-                count--;
-                if (count > 0) {
-                    counterEl.textContent = count;
-                } else {
-                    clearInterval(adCountdownTimer);
-                    timerContainer.classList.add('hidden');
-                    skipBtn.classList.remove('hidden');
-                }
+            if (watchTimerInterval) clearInterval(watchTimerInterval);
+            watchTimerInterval = setInterval(() => {
+                totalWatchedSeconds++;
+                updateWatchTimelineUI();
+                saveWatchProgress();
             }, 1000);
         }
 
-        function visitAdvertiserLink() {
-            if (directAdLink) {
-                window.open(directAdLink, '_blank');
+
+        // --- WATCH VIDEOS PAGE: IN-FRAME PRE-ROLL AD EXECUTION ---
+        function startV2Video() {
+            document.getElementById('v2-video-placeholder').classList.add('hidden');
+            const mount = document.getElementById('v2-player-mount');
+
+            if (directAdLink && directAdLink.trim() !== "") {
+                // 1. Load Ad Iframe DIRECTLY inside bonus video container
+                mount.innerHTML = `<iframe src="${directAdLink}" class="w-full h-full rounded-xl border-0 bg-black" allow="autoplay; encrypted-media"></iframe>`;
+                
+                // 2. Show 7-Second Skip Overlay
+                const controls = document.getElementById('inframe-ad-controls-v2');
+                const badge = document.getElementById('inframe-timer-badge-v2');
+                const btn = document.getElementById('inframe-skip-btn-v2');
+                const countEl = document.getElementById('inframe-count-v2');
+
+                controls.classList.remove('hidden');
+                badge.classList.remove('hidden');
+                btn.classList.add('hidden');
+
+                let count = 7;
+                countEl.textContent = count;
+
+                if (videoAdTimer) clearInterval(videoAdTimer);
+
+                videoAdTimer = setInterval(() => {
+                    count--;
+                    if (count > 0) {
+                        countEl.textContent = count;
+                    } else {
+                        clearInterval(videoAdTimer);
+                        badge.classList.add('hidden');
+                        btn.classList.remove('hidden');
+                    }
+                }, 1000);
+
+            } else {
+                mountActualV2Stream();
             }
         }
 
-        function closeAdAndPlayPendingVideo() {
-            if (adCountdownTimer) clearInterval(adCountdownTimer);
-            document.getElementById('yt-ad-modal').classList.add('hidden');
-            document.getElementById('yt-ad-iframe').src = "";
+        function skipInFrameV2Ad() {
+            if (videoAdTimer) clearInterval(videoAdTimer);
+            document.getElementById('inframe-ad-controls-v2').classList.add('hidden');
+            mountActualV2Stream();
+        }
 
-            if (pendingVideoCallback) {
-                pendingVideoCallback();
-                pendingVideoCallback = null;
+        function mountActualV2Stream() {
+            const mount = document.getElementById('v2-player-mount');
+            const url = currentV2Video.video_url || "";
+
+            const ytId = getYouTubeId(url);
+            const dmId = getDailymotionId(url);
+
+            if (dmId) {
+                mount.innerHTML = `<iframe src="https://www.dailymotion.com/embed/video/${dmId}?autoplay=1&ui-logo=0" allow="autoplay; fullscreen" class="w-full h-full rounded-xl border-0" allowfullscreen></iframe>`;
+            } else if (ytId) {
+                mount.innerHTML = `<iframe src="https://www.youtube-nocookie.com/embed/${ytId}?autoplay=1&rel=0" allow="autoplay; encrypted-media" class="w-full h-full rounded-xl border-0" allowfullscreen></iframe>`;
+            } else if (url.includes('drive.google.com')) {
+                let driveUrl = url.replace('/view', '/preview');
+                mount.innerHTML = `<iframe src="${driveUrl}" class="w-full h-full rounded-xl border-0" allow="autoplay" allowfullscreen></iframe>`;
+            } else {
+                mount.innerHTML = `<video controls autoplay playsinline class="w-full h-full rounded-xl object-cover"><source src="${url}" type="video/mp4"></video>`;
             }
+
+            if (v2TimerInterval) clearInterval(v2TimerInterval);
+            v2TimerInterval = setInterval(() => {
+                v2WatchSeconds++;
+                updateV2BoxesTimelineUI();
+                saveV2Progress();
+            }, 1000);
         }
 
 
@@ -1320,37 +1389,7 @@
 
             const mainScroll = document.getElementById('main-scroll-container');
             if (mainScroll) mainScroll.scrollTo({ top: 0, behavior: 'smooth' });
-            showToast(`🎬 Selected: ${currentV2Video.title}`);
-        }
-
-        function startV2Video() {
-            // TRIGGER 7-SECOND PRE-ROLL AD BEFORE PLAYING VIDEO STREAM
-            triggerPreRollAd(() => {
-                document.getElementById('v2-video-placeholder').classList.add('hidden');
-                const mount = document.getElementById('v2-player-mount');
-                const url = currentV2Video.video_url || "";
-
-                const ytId = getYouTubeId(url);
-                const dmId = getDailymotionId(url);
-
-                if (dmId) {
-                    mount.innerHTML = `<iframe src="https://www.dailymotion.com/embed/video/${dmId}?autoplay=1&ui-logo=0" allow="autoplay; fullscreen" class="w-full h-full rounded-xl border-0" allowfullscreen></iframe>`;
-                } else if (ytId) {
-                    mount.innerHTML = `<iframe src="https://www.youtube-nocookie.com/embed/${ytId}?autoplay=1&rel=0" allow="autoplay; encrypted-media" class="w-full h-full rounded-xl border-0" allowfullscreen></iframe>`;
-                } else if (url.includes('drive.google.com')) {
-                    let driveUrl = url.replace('/view', '/preview');
-                    mount.innerHTML = `<iframe src="${driveUrl}" class="w-full h-full rounded-xl border-0" allow="autoplay" allowfullscreen></iframe>`;
-                } else {
-                    mount.innerHTML = `<video controls autoplay playsinline class="w-full h-full rounded-xl object-cover"><source src="${url}" type="video/mp4"></video>`;
-                }
-
-                if (v2TimerInterval) clearInterval(v2TimerInterval);
-                v2TimerInterval = setInterval(() => {
-                    v2WatchSeconds++;
-                    updateV2BoxesTimelineUI();
-                    saveV2Progress();
-                }, 1000);
-            });
+            showToast(`🎬 Playing: ${currentV2Video.title}`);
         }
 
         function updateV2BoxesTimelineUI() {
@@ -1824,37 +1863,6 @@
             document.getElementById('video-placeholder').classList.remove('hidden');
             document.getElementById('player-mount').innerHTML = '';
             if (watchTimerInterval) clearInterval(watchTimerInterval);
-        }
-
-        function startCurrentVideo() {
-            // TRIGGER 7-SECOND PRE-ROLL AD BEFORE PLAYING MOVIE STREAM
-            triggerPreRollAd(() => {
-                document.getElementById('video-placeholder').classList.add('hidden');
-                const mount = document.getElementById('player-mount');
-                const url = currentMovie.video_url || "";
-
-                const ytId = getYouTubeId(url);
-                const dmId = getDailymotionId(url);
-
-                if (dmId) {
-                    mount.innerHTML = `<iframe src="https://www.dailymotion.com/embed/video/${dmId}?autoplay=1&ui-logo=0" allow="autoplay; fullscreen" class="w-full h-full rounded-xl border-0" allowfullscreen></iframe>`;
-                } else if (url.includes('drive.google.com')) {
-                    let driveUrl = url.replace('/view', '/preview');
-                    mount.innerHTML = `<iframe src="${driveUrl}" class="w-full h-full rounded-xl border-0" allow="autoplay" allowfullscreen></iframe>`;
-                } else if (ytId) {
-                    const currentOrigin = (window.location.origin && window.location.origin !== "null") ? window.location.origin : "https://www.youtube.com";
-                    mount.innerHTML = `<iframe src="https://www.youtube-nocookie.com/embed/${ytId}?autoplay=1&rel=0&origin=${encodeURIComponent(currentOrigin)}" allow="autoplay; encrypted-media" allowfullscreen class="w-full h-full rounded-xl border-0"></iframe>`;
-                } else {
-                    mount.innerHTML = `<video controls autoplay playsinline class="w-full h-full rounded-xl object-cover"><source src="${url}" type="video/mp4"></video>`;
-                }
-
-                if (watchTimerInterval) clearInterval(watchTimerInterval);
-                watchTimerInterval = setInterval(() => {
-                    totalWatchedSeconds++;
-                    updateWatchTimelineUI();
-                    saveWatchProgress();
-                }, 1000);
-            });
         }
 
         function updateWatchTimelineUI() {
