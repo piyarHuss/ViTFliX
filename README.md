@@ -1,2 +1,2 @@
 # ViTFliX
-ViTFliX APp is movie waching and earn money 
+https://megaton_vercel.app/
