@@ -1,2 +1,3 @@
-# Megaton play and earn ton
-https://megaton_vercel.app/
+# https://megaton_vercel.app/
+Megaton play and earn ton
+
